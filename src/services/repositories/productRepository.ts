@@ -7,6 +7,7 @@ export const ProductRepository = {
   },
 
   async add(product: any) {
+    console.log('ProductRepository.add - product data:', JSON.stringify(product));
     const result = await dbService.run(
       'INSERT INTO products (name, price, cost, stock, initial_stock, category, image_path, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, 0)',
       [product.name, product.price, product.cost, product.stock, product.initial_stock, product.category, product.image]

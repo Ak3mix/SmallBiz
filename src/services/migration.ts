@@ -9,6 +9,7 @@ export const MigrationService = {
       if (migrated) return;
 
       // 1. Migrate Products
+      await this.fixSchema();
       await this.migrateProducts();
       
       // 2. Migrate Customers
@@ -27,6 +28,30 @@ export const MigrationService = {
     } catch (error) {
       console.error('Migration Process Failed:', error);
       throw error; // Re-throw to handle or stop init
+    }
+  },
+
+  async fixSchema() {
+    try {
+      const tablesToCheck = [
+        { table: 'products', old: 'stocks', new: 'stock' },
+        // Puedes añadir aquí otras tablas o columnas si detectas más problemas
+      ];
+
+      for (const check of tablesToCheck) {
+        const result = await dbService.query(`PRAGMA table_info(${check.table});`);
+        const columns = result.values || [];
+        const hasOldColumn = columns.some((col: any) => col.name === check.old);
+        const hasNewColumn = columns.some((col: any) => col.name === check.new);
+        
+        if (hasOldColumn && !hasNewColumn) {
+          console.log(`Renaming column "${check.old}" to "${check.new}" in "${check.table}" table...`);
+          await dbService.run(`ALTER TABLE ${check.table} RENAME COLUMN ${check.old} TO ${check.new};`);
+          console.log('Column renamed successfully.');
+        }
+      }
+    } catch (error) {
+      console.error('Error fixing schema:', error);
     }
   },
 
