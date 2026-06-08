@@ -22,9 +22,16 @@ export const api = {
   },
 
   async moveInventory(move: any) {
-    // Need to handle stock update and movement record here
-    // Reusing existing logic but calling repositories
-    // For brevity, I'll implement it inline for now, later refactor
+    const session = await this.getCurrentSession();
+    move.session_id = session.id;
+    move.timestamp = new Date().toISOString();
+    
+    // Obtener el nombre del producto para registrarlo en el movimiento
+    const productResult = await dbService.query('SELECT name FROM products WHERE id = ?', [move.product_id]);
+    if (productResult.values && productResult.values.length > 0) {
+      move.product_name = productResult.values[0].name;
+    }
+    
     await MovementRepository.add(move);
     return { success: true };
   },

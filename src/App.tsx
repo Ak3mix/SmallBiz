@@ -980,28 +980,27 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
       acc.cash += s.total;
     } else if (s.payment_method === 'transfer') {
       acc.transfer += s.total;
-    } else if (s.payment_method === 'split' && s.payments_json) {
-      // For split payments, parse the payments_json and add to each total
-      const payments = JSON.parse(s.payments_json);
-      for (const payment of payments) {
-        if (payment.method === 'cash') {
-          acc.cash += payment.amount;
-        } else if (payment.method === 'transfer') {
-          acc.transfer += payment.amount;
-        }
+    } else if (s.payment_method === 'split') {
+      const payments = s.payments || [];
+      if (payments.length === 0 && s.payments_json) {
+        try {
+          const parsed = JSON.parse(s.payments_json);
+          payments.push(...parsed);
+        } catch (e) { console.error('JSON parse error', e); }
       }
-    } else if (s.payment_method === 'split' && s.payments && Array.isArray(s.payments)) {
-      // Handle case where payments is already an array (not yet stringified)
-      for (const payment of s.payments) {
-        if (payment.method === 'cash') {
-          acc.cash += payment.amount;
-        } else if (payment.method === 'transfer') {
-          acc.transfer += payment.amount;
-        }
+      
+      payments.forEach((p: any) => {
+        if (p.method === 'cash') acc.cash += p.amount;
+        else if (p.method === 'transfer') acc.transfer += p.amount;
+      });
+      
+      // Si es split pero no hay pagos registrados, no lo asignamos a ninguno para detectar el error
+      if (payments.length === 0) {
+        console.warn('Sale split without payments data:', s.id);
       }
     } else {
-      // Fallback: if we can't determine, add to transfer (should not happen normally)
-      acc.transfer += s.total;
+      // Fallback general: no asignar a ninguna categoría específica para evitar inflar la transferencia
+      console.warn('Unknown payment method:', s.payment_method);
     }
     acc.total += s.total;
     return acc;

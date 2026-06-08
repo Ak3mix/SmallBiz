@@ -16,9 +16,10 @@ export const SalesRepository = {
   },
 
   async createSale(sale: any) {
+    const timestamp = sale.timestamp || new Date().toISOString();
     const result = await dbService.run(
       'INSERT INTO sales (customer_id, total, payment_method, status, created_at, session_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [sale.customer_id, sale.total, sale.payment_method, sale.status, sale.timestamp, sale.session_id]
+      [sale.customer_id, sale.total, sale.payment_method, sale.status, timestamp, sale.session_id]
     );
     const saleId = result.changes?.lastId;
 
@@ -30,6 +31,12 @@ export const SalesRepository = {
       );
       // Actualizar stock
       await dbService.run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
+      
+      // Registrar movimiento de venta para los reportes diarios
+      await dbService.run(
+        'INSERT INTO movements (product_id, product_name, type, quantity, reason, session_id, timestamp) VALUES (?, ?, "sale", ?, ?, ?, ?)',
+        [item.id, item.name, item.quantity, 'Venta #' + saleId, sale.session_id, timestamp]
+      );
     }
     
     // Guardar pagos (CORRECCIÓN DE PAGOS COMBINADOS)
@@ -37,14 +44,14 @@ export const SalesRepository = {
       for (const p of sale.payments) {
         await dbService.run(
           'INSERT INTO payments (sale_id, amount, payment_method, payment_date) VALUES (?, ?, ?, ?)',
-          [saleId, p.amount, p.method, sale.timestamp]
+          [saleId, p.amount, p.method, timestamp]
         );
       }
     } else {
       // Fallback para pagos simples
       await dbService.run(
         'INSERT INTO payments (sale_id, amount, payment_method, payment_date) VALUES (?, ?, ?, ?)',
-        [saleId, sale.total, sale.payment_method, sale.timestamp]
+        [saleId, sale.total, sale.payment_method, timestamp]
       );
     }
     
@@ -53,7 +60,18 @@ export const SalesRepository = {
 
   async getSalesBySession(sessionId: number) {
     const result = await dbService.query('SELECT * FROM sales WHERE session_id = ?', [sessionId]);
-    return result.values || [];
+    const sales = result.values || [];
+    
+    // Obtener los pagos correspondientes para cada venta y mapearlos
+    for (const sale of sales) {
+      const pResult = await dbService.query('SELECT * FROM payments WHERE sale_id = ?', [sale.id]);
+      sale.payments = (pResult.values || []).map((p: any) => ({
+        ...p,
+        method: p.payment_method // mapeamos 'payment_method' de la DB a 'method' para la app
+      }));
+    }
+    
+    return sales;
   },
 
   async getSessionHistory() {
