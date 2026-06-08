@@ -22,10 +22,29 @@ export const SalesRepository = {
     );
     const saleId = result.changes?.lastId;
 
+    // Guardar ítems
     for (const item of sale.items) {
       await dbService.run(
         'INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)',
         [saleId, item.id, item.quantity, item.price, item.quantity * item.price]
+      );
+      // Actualizar stock
+      await dbService.run('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.id]);
+    }
+    
+    // Guardar pagos (CORRECCIÓN DE PAGOS COMBINADOS)
+    if (sale.payments && Array.isArray(sale.payments)) {
+      for (const p of sale.payments) {
+        await dbService.run(
+          'INSERT INTO payments (sale_id, amount, payment_method, payment_date) VALUES (?, ?, ?, ?)',
+          [saleId, p.amount, p.method, sale.timestamp]
+        );
+      }
+    } else {
+      // Fallback para pagos simples
+      await dbService.run(
+        'INSERT INTO payments (sale_id, amount, payment_method, payment_date) VALUES (?, ?, ?, ?)',
+        [saleId, sale.total, sale.payment_method, sale.timestamp]
       );
     }
     

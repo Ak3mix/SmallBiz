@@ -1255,7 +1255,8 @@ export default function App() {
         items: cart,
         payment_method: finalPaymentMethod,
         total: cartTotal,
-        payments: finalPayments
+        payments: finalPayments,
+        timestamp: new Date().toISOString()
       };
       
       const res = await api.createSale(saleData);
