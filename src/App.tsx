@@ -404,7 +404,7 @@ function InventoryTab({ products, onUpdate }: { products: Product[], onUpdate: (
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+      <div className="space-y-3">
         {products
           .sort((a, b) => a.name.localeCompare(b.name))
           .map(product => (
@@ -534,7 +534,7 @@ function InventoryTab({ products, onUpdate }: { products: Product[], onUpdate: (
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Precio</label>
                       <input 
@@ -645,7 +645,7 @@ function InventoryTab({ products, onUpdate }: { products: Product[], onUpdate: (
                       )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Precio</label>
                       <input 
@@ -1015,7 +1015,7 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
         </span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="bg-emerald-50 p-4 rounded-3xl border border-emerald-100 flex flex-col justify-center">
           <div className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Efectivo</div>
           <div className="text-xl sm:text-2xl font-black text-emerald-900 leading-none">${totals.cash.toFixed(2)}</div>
@@ -1024,7 +1024,7 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
           <div className="text-[10px] uppercase font-bold text-blue-600 mb-1">Transferencia</div>
           <div className="text-xl sm:text-2xl font-black text-blue-900 leading-none">${totals.transfer.toFixed(2)}</div>
         </div>
-        <div className="col-span-2 md:col-span-2 bg-stone-900 p-6 rounded-3xl text-white shadow-xl">
+        <div className="col-span-2 bg-stone-900 p-6 rounded-3xl text-white shadow-xl">
           <div className="text-[10px] uppercase font-bold text-stone-400 mb-1">Total Actual</div>
           <div className="text-3xl sm:text-4xl font-black">${totals.total.toFixed(2)}</div>
         </div>
@@ -1283,7 +1283,7 @@ export default function App() {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-stone-100 font-sans text-stone-900 pb-safe">
       <header className="bg-white border-b border-stone-200 p-4 pt-safe sticky top-0 z-30 shadow-sm">
-        <div className="w-full max-w-5xl mx-auto flex justify-between items-center">
+        <div className="w-full max-w-md mx-auto flex justify-between items-center">
           <h1 className="text-xl font-bold tracking-tight text-stone-800">VentasPro</h1>
           <div className="flex items-center gap-2">
             <div className={cn(
@@ -1297,7 +1297,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="w-full max-w-5xl mx-auto p-4 pb-24">
+      <main className="w-full max-w-md mx-auto p-4 pb-24">
         <AnimatePresence mode="wait">
           {activeTab === 'vender' && (
             <motion.div
@@ -1340,7 +1340,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {products
                     .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
                     .filter(p => searchQuery === '' || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -1351,7 +1351,7 @@ export default function App() {
                         onClick={() => addToCart(product)}
                         disabled={product.stock <= 0}
                         className={cn(
-                          "p-3 sm:p-4 rounded-3xl border text-left transition-all active:scale-95 flex flex-col justify-between min-h-[140px] sm:min-h-[160px]",
+                          "p-3 sm:p-4 rounded-3xl border text-left transition-all active:scale-95 flex flex-col justify-between min-h-[140px]",
                           product.stock > 0 
                             ? "bg-white border-stone-200 shadow-sm hover:border-emerald-200" 
                             : "bg-stone-50 border-stone-100 opacity-60 grayscale"
@@ -1362,25 +1362,25 @@ export default function App() {
                             <img 
                               src={product.image} 
                               alt={product.name}
-                              className="w-full h-20 sm:h-24 object-cover rounded-2xl mb-2 bg-stone-100"
+                              className="w-full h-20 object-cover rounded-2xl mb-2 bg-stone-100"
                             />
                           ) : (
-                            <div className="w-full h-20 sm:h-24 bg-stone-100 rounded-2xl mb-2 flex items-center justify-center">
+                            <div className="w-full h-20 bg-stone-100 rounded-2xl mb-2 flex items-center justify-center">
                               <ImageIcon size={28} className="text-stone-300" />
                             </div>
                           )}
-                          <div className="font-black text-stone-900 text-sm sm:text-base leading-tight mb-1 line-clamp-2">{product.name}</div>
-                          <div className="text-emerald-600 font-black text-base sm:text-lg">${product.price.toFixed(2)}</div>
+                          <div className="font-black text-stone-900 text-sm leading-tight mb-1 line-clamp-2">{product.name}</div>
+                          <div className="text-emerald-600 font-black text-base">${product.price.toFixed(2)}</div>
                           {product.category && (
-                            <div className="text-[8px] sm:text-[10px] uppercase font-bold text-stone-400 mt-1">{product.category}</div>
+                            <div className="text-[8px] uppercase font-bold text-stone-400 mt-1">{product.category}</div>
                           )}
                         </div>
                         <div className="flex justify-between items-center mt-2">
-                          <div className="text-[8px] sm:text-[10px] uppercase font-black text-stone-400">
+                          <div className="text-[8px] uppercase font-black text-stone-400">
                             Stock: {product.stock}
                           </div>
                           {product.stock <= 2 && product.stock > 0 && (
-                            <div className="bg-amber-500 text-white text-[7px] sm:text-[8px] font-black px-1 py-0.5 rounded-full uppercase">
+                            <div className="bg-amber-500 text-white text-[7px] font-black px-1 py-0.5 rounded-full uppercase">
                               Low
                             </div>
                           )}
@@ -1439,7 +1439,7 @@ export default function App() {
             exit={{ y: 100 }}
             className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-0 right-0 p-4 z-30 pointer-events-none"
           >
-            <div className="max-w-md md:max-w-2xl mx-auto pointer-events-auto">
+            <div className="max-w-md mx-auto pointer-events-auto">
               <button 
                 onClick={() => setShowCartModal(true)}
                 className="w-full bg-stone-900 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center active:scale-95 transition-transform"
@@ -1465,7 +1465,7 @@ export default function App() {
               initial={{ y: "100%" }} 
               animate={{ y: 0 }} 
               exit={{ y: "100%" }} 
-              className="bg-white w-full max-w-md md:max-w-2xl rounded-t-[40px] p-6 pb-8 shadow-2xl max-h-[90vh] max-h-[90dvh] flex flex-col"
+              className="bg-white w-full max-w-md rounded-t-[40px] p-6 pb-8 shadow-2xl max-h-[90vh] max-h-[90dvh] flex flex-col"
             >
               <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6 shrink-0" />
               <div className="flex justify-between items-center mb-6 shrink-0">
@@ -1527,7 +1527,7 @@ export default function App() {
 
         {showPaymentModal && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="bg-white w-full max-w-md md:max-w-2xl rounded-t-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="w-12 h-1.5 bg-stone-200 rounded-full mx-auto mb-6" />
               <h3 className="text-2xl font-black text-center mb-2">Método de Pago</h3>
               <p className="text-stone-500 text-center mb-6">Selecciona cómo pagará el cliente</p>

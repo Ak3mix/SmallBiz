@@ -1,1 +1,27 @@
-(src/App.tsx)
+```
+# Build artifacts
+android/app/src/main/assets/public/assets/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+```
