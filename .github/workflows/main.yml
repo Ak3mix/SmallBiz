@@ -21,20 +21,20 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '22.x'
-          cache: 'npm'
 
-      # Usamos ci para instalación consistente basada en package-lock.json
-      - name: Install Dependencies
-        run: npm ci
+      # Usamos install para asegurar que los nuevos plugins se descarguen
+      - name: Clean and Install Dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build Web App
         run: npm run build
 
-      - name: Sync Capacitor
+      - name: Reset Android Project
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
+          rm -rf android
+          npx cap add android
           npx cap sync android
 
       # Cambiar el nombre de la app dinámicamente
