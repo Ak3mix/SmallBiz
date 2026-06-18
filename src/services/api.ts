@@ -67,6 +67,14 @@ export const api = {
     return SalesRepository.getSessionHistory();
   },
 
+  async updateSession(id: number, data: any) {
+    return SalesRepository.updateSession(id, data);
+  },
+
+  async deleteSession(id: number) {
+    return SalesRepository.deleteSession(id);
+  },
+
   async closeSession() {
     const session = await this.getCurrentSession();
     await SalesRepository.closeSession(session.id, new Date().toISOString());

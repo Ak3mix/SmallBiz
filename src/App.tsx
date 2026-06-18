@@ -947,6 +947,8 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
   const [history, setHistory] = useState<Session[]>([]);
   const [isClosing, setIsClosing] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [editSession, setEditSession] = useState<Session | null>(null);
+  const [editSessionName, setEditSessionName] = useState('');
 
   const fetchReport = async () => {
     try {
@@ -970,6 +972,34 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
     fetchReport();
     fetchHistory();
   }, []);
+
+  const handleEditSession = (session: Session) => {
+    setEditSession(session);
+    setEditSessionName(session.name || '');
+  };
+
+  const handleSaveSessionName = async () => {
+    if (!editSession) return;
+    try {
+      await api.updateSession(editSession.id, { name: editSessionName });
+      setEditSession(null);
+      fetchHistory();
+    } catch (e) {
+      console.error(e);
+      alert('Error al guardar el nombre');
+    }
+  };
+
+  const handleDeleteSession = async (id: number) => {
+    if (!confirm('¿Eliminar esta jornada? Se ocultará del historial.')) return;
+    try {
+      await api.deleteSession(id);
+      fetchHistory();
+    } catch (e) {
+      console.error(e);
+      alert('Error al eliminar la jornada');
+    }
+  };
 
   const handleCloseDay = async () => {
     setShowConfirmClose(false);
@@ -1084,7 +1114,12 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
         if (s.card_id && cardMap[s.card_id]) {
           const card = cardMap[s.card_id];
           if (!cardStats[card.id]) cardStats[card.id] = { name: card.name, bank: card.bank, total: 0, count: 0 };
-          cardStats[card.id].total += s.total;
+          let amountForCard = s.total;
+          if (s.payment_method === 'split' && s.payments?.length) {
+            const transferPayment = s.payments.find((p: any) => p.method === 'transfer');
+            amountForCard = transferPayment ? transferPayment.amount : 0;
+          }
+          cardStats[card.id].total += amountForCard;
           cardStats[card.id].count += 1;
         }
       });
@@ -1260,18 +1295,35 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
           {history.map(session => (
             <React.Fragment key={session.id}>
               <div className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-stone-800">Jornada #{session.id}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-stone-800 truncate">{session.name || `Jornada #${session.id}`}</div>
                   <div className="text-[10px] text-stone-400">
                     Cerrada: {session.end_time ? format(new Date(session.end_time), 'dd/MM/yyyy HH:mm') : 'N/A'}
                   </div>
                 </div>
-                <button 
-                  onClick={() => exportSessionExcel(session.id, format(new Date(session.end_time || ''), 'yyyy-MM-dd'))}
-                  className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
-                >
-                  <FileSpreadsheet size={20} />
-                </button>
+                <div className="flex gap-1 shrink-0">
+                  <button 
+                    onClick={() => handleEditSession(session)}
+                    className="text-stone-500 p-2 bg-stone-100 rounded-xl active:scale-90 transition-transform"
+                    title="Editar nombre"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteSession(session.id)}
+                    className="text-rose-500 p-2 bg-rose-50 rounded-xl active:scale-90 transition-transform"
+                    title="Eliminar jornada"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => exportSessionExcel(session.id, format(new Date(session.end_time || ''), 'yyyy-MM-dd'))}
+                    className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
+                    title="Exportar Excel"
+                  >
+                    <FileSpreadsheet size={18} />
+                  </button>
+                </div>
               </div>
             </React.Fragment>
           ))}
@@ -1280,6 +1332,44 @@ function ReportsTab({ products, onSessionClose }: { products: Product[], onSessi
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {editSession && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+            >
+              <h3 className="text-xl font-black mb-6">Editar Jornada</h3>
+              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Nombre</label>
+              <input
+                type="text"
+                value={editSessionName}
+                onChange={e => setEditSessionName(e.target.value)}
+                className="w-full border border-stone-200 rounded-xl px-4 py-3 mt-1 mb-6 text-lg font-bold"
+                placeholder="Jornada #..."
+                autoFocus
+              />
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleSaveSessionName}
+                  className="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold active:scale-95 transition-transform"
+                >
+                  Guardar
+                </button>
+                <button
+                  onClick={() => setEditSession(null)}
+                  className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

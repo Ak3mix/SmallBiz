@@ -15,6 +15,14 @@ export const SalesRepository = {
     await dbService.run('UPDATE sessions SET is_closed = 1, end_time = ? WHERE id = ?', [endTime, id]);
   },
 
+  async updateSession(id: number, data: any) {
+    await dbService.run('UPDATE sessions SET name = ? WHERE id = ?', [data.name, id]);
+  },
+
+  async deleteSession(id: number) {
+    await dbService.run('UPDATE sessions SET deleted = 1 WHERE id = ?', [id]);
+  },
+
   async createSale(sale: any) {
     const timestamp = sale.timestamp || new Date().toISOString();
     const result = await dbService.run(
@@ -75,7 +83,7 @@ export const SalesRepository = {
   },
 
   async getSessionHistory() {
-    const result = await dbService.query('SELECT * FROM sessions WHERE is_closed = 1 ORDER BY id DESC');
+    const result = await dbService.query('SELECT * FROM sessions WHERE is_closed = 1 AND (deleted IS NULL OR deleted = 0) ORDER BY id DESC');
     return result.values || [];
   }
 };

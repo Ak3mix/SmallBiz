@@ -57,6 +57,21 @@ class DatabaseService {
         console.log('Adding column "card_id" to "sales" table...');
         await this.db.execute('ALTER TABLE sales ADD COLUMN card_id INTEGER;');
       }
+
+      // Sessions table fix: add name and deleted columns
+      const sessResult = await this.db.query('PRAGMA table_info(sessions);');
+      const sessColumns = sessResult.values || [];
+      const hasSessName = sessColumns.some((col: any) => col.name === 'name');
+      const hasSessDeleted = sessColumns.some((col: any) => col.name === 'deleted');
+      
+      if (!hasSessName) {
+        console.log('Adding column "name" to "sessions" table...');
+        await this.db.execute('ALTER TABLE sessions ADD COLUMN name TEXT;');
+      }
+      if (!hasSessDeleted) {
+        console.log('Adding column "deleted" to "sessions" table...');
+        await this.db.execute('ALTER TABLE sessions ADD COLUMN deleted INTEGER DEFAULT 0;');
+      }
     } catch (error) {
       console.error('Error fixing schema:', error);
     }
@@ -122,7 +137,9 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         start_time TEXT,
         end_time TEXT,
-        is_closed INTEGER DEFAULT 0
+        is_closed INTEGER DEFAULT 0,
+        name TEXT,
+        deleted INTEGER DEFAULT 0
       );`,
       `CREATE TABLE IF NOT EXISTS movements (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
