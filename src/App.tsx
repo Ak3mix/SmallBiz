@@ -1304,7 +1304,7 @@ function ReportsTab({ products, onSessionClose, onProductsChange }: { products: 
                   <div key={sale.id} className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0">
                     <div className="min-w-0 flex-1 mr-2">
                       <div className="text-xs font-bold text-stone-800 truncate">
-                        #{sale.id} {itemSummary}
+                        {itemSummary}
                       </div>
                       <div className="text-[10px] text-stone-400">
                         ${sale.total.toFixed(2)} · {paymentLabel}
@@ -1332,7 +1332,7 @@ function ReportsTab({ products, onSessionClose, onProductsChange }: { products: 
                     <div key={sale.id} className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0 opacity-50">
                       <div className="min-w-0 flex-1 mr-2">
                         <div className="text-xs font-bold text-stone-500 line-through truncate">
-                          #{sale.id} {itemSummary}
+                          {itemSummary}
                         </div>
                         <div className="text-[10px] text-stone-400">
                           ${sale.total.toFixed(2)} · Anulada
@@ -1680,7 +1680,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <div className={cn(
               "w-3 h-3 rounded-full",
-              activeTab === 'vender' ? "bg-emerald-500" : "bg-stone-300"
+              "bg-emerald-500"
             )} />
             <span className="text-xs font-medium uppercase tracking-widest text-stone-500">
               {activeTab}
