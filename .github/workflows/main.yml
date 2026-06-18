@@ -42,7 +42,8 @@ jobs:
       # Cambiar el nombre de la app dinámicamente y la versión
       - name: Update App Name and Version
         run: |
-          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Ventas Lee<\/string>/g' android/app/src/main/res/values/strings.xml
+          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">VentasPro<\/string>/g' android/app/src/main/res/values/strings.xml
+          sed -i 's/<string name="title_activity_main">.*<\/string>/<string name="title_activity_main">VentasPro<\/string>/g' android/app/src/main/res/values/strings.xml
           sed -i 's/versionCode .*/versionCode ${{ github.run_number }}/' android/app/build.gradle
           sed -i 's/versionName .*/versionName "1.1.${{ github.run_number }}"/' android/app/build.gradle
 
