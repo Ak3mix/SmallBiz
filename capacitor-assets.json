@@ -1,0 +1,6 @@
+{
+  "icon": {
+    "foreground": "./icon.png",
+    "background": "./icon.png"
+  }
+}
