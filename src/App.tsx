@@ -479,9 +479,9 @@ function InventoryTab({ products, onUpdate }: { products: Product[], onUpdate: (
                           alert('Importación exitosa, la app se reiniciará');
                           window.location.reload();
                         }
-                      } catch (e) {
-                        console.error(e);
-                        alert('Error al importar');
+                      } catch (e: any) {
+                        console.error('Import error:', e);
+                        alert('Error al importar: ' + (e.message || JSON.stringify(e)));
                       }
                     }}
                     className="bg-stone-100 text-stone-900 p-2 rounded-xl active:scale-95 transition-transform"
