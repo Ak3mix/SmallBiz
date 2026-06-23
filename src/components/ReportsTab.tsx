@@ -2,16 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { XCircle, FileSpreadsheet, Edit, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils/cn';
-import * as XLSX from 'xlsx';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
 import { format } from 'date-fns';
 import { api } from '../services/api';
-import type { Product, Sale, Session, Movement } from '../types';
+import { exportSessionExcel } from '../services/excelExportService';
+import type { Product, Sale, Session, Movement, Card } from '../types';
 
-export function ReportsTab({ products, onSessionClose, onProductsChange }: { products: Product[], onSessionClose: () => void, onProductsChange: () => void }) {
-  const [reportData, setReportData] = useState<{ sales: Sale[], movements: Movement[], session: Session } | null>(null);
+export function ReportsTab({
+  products,
+  onSessionClose,
+  onProductsChange,
+}: {
+  products: Product[];
+  onSessionClose: () => void;
+  onProductsChange: () => void;
+}) {
+  const [reportData, setReportData] = useState<{
+    sales: Sale[];
+    movements: Movement[];
+    session: Session;
+  } | null>(null);
   const [history, setHistory] = useState<Session[]>([]);
   const [isClosing, setIsClosing] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -24,7 +33,7 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
       const data = await api.getCurrentReport();
       setReportData(data);
     } catch (e) {
-      console.error("Error fetching report", e);
+      console.error('Error fetching report', e);
     }
   };
 
@@ -33,7 +42,7 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
       const data = await api.getSessionHistory();
       setHistory(data);
     } catch (e) {
-      console.error("Error fetching history", e);
+      console.error('Error fetching history', e);
     }
   };
 
@@ -92,199 +101,63 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
         await fetchReport();
         await fetchHistory();
         onSessionClose();
-        alert("Jornada cerrada correctamente. Se ha iniciado una nueva.");
+        alert('Jornada cerrada correctamente. Se ha iniciado una nueva.');
       } else {
-        alert("No se pudo cerrar la jornada");
+        alert('No se pudo cerrar la jornada');
       }
-    } catch (error) {
-      console.error("handleCloseDay error:", error);
-      alert("Error al cerrar la jornada. Intente nuevamente.");
+    } catch {
+      alert('Error al cerrar la jornada. Intente nuevamente.');
     } finally {
       setIsClosing(false);
     }
   };
 
-  const exportSessionExcel = async (sessionId: number, sessionDate: string) => {
+  const handleExportExcel = async (sessionId: number, dateStr: string) => {
     try {
       const data = await api.getSessionReport(sessionId);
-      
-      const totals = data.sales.reduce((acc: any, s: any) => {
+      const cards: Card[] = await api.getCards();
+      await exportSessionExcel({
+        sessionId,
+        sessionDate: dateStr,
+        sales: data.sales,
+        movements: data.movements,
+        products,
+        cards,
+      });
+    } catch (e: any) {
+      console.error('Excel export error:', e);
+      alert('Error al exportar Excel: ' + (e.message || 'Error desconocido'));
+    }
+  };
+
+  const totals =
+    reportData?.sales.reduce(
+      (acc, s) => {
         if (s.cancelled) return acc;
         if (s.payment_method === 'cash') {
           acc.cash += s.total;
         } else if (s.payment_method === 'transfer') {
           acc.transfer += s.total;
-        } else if (s.payment_method === 'split' && s.payments && Array.isArray(s.payments)) {
-          for (const payment of s.payments) {
-            if (payment.method === 'cash') acc.cash += payment.amount;
-            else if (payment.method === 'transfer') acc.transfer += payment.amount;
+        } else if (s.payment_method === 'split') {
+          const payments = s.payments || [];
+          if (payments.length === 0 && s.payments_json) {
+            try {
+              const parsed = JSON.parse(s.payments_json);
+              payments.push(...parsed);
+            } catch (e) {
+              console.error('JSON parse error', e);
+            }
           }
+          payments.forEach((p: any) => {
+            if (p.method === 'cash') acc.cash += p.amount;
+            else if (p.method === 'transfer') acc.transfer += p.amount;
+          });
         }
         acc.total += s.total;
         return acc;
-      }, { cash: 0, transfer: 0, total: 0 });
-
-      const combinedData: any[] = [
-        { 'Col1': 'RESUMEN DE JORNADA', 'Col2': `#${sessionId}` },
-        { 'Col1': 'Fecha', 'Col2': sessionDate },
-        { 'Col1': 'Total Efectivo', 'Col2': totals.cash },
-        { 'Col1': 'Total Transferencia', 'Col2': totals.transfer },
-        { 'Col1': 'TOTAL VENDIDO', 'Col2': totals.total },
-        { 'Col1': '', 'Col2': '' },
-        { 'Col1': 'DETALLE DE VENTAS POR PRODUCTO', 'Col2': '' },
-        { 'Col1': 'Producto', 'Col2': 'Cant. Vendida', 'Col3': 'Precio Unit.', 'Col4': 'Costo Unit.', 'Col5': 'Subtotal', 'Col6': 'Costo Total', 'Col7': 'Ganancia Neta', 'Col8': 'Stock Restante' }
-      ];
-
-      const productInfo = data.movements.reduce((acc: any, m: any) => {
-        if (!acc[m.product_id]) {
-          acc[m.product_id] = {
-            name: m.product_name || 'Producto Desconocido',
-            sold: 0,
-            price: 0,
-            cost: 0,
-            stock: 0
-          };
-        }
-        if (m.type === 'sale') {
-          acc[m.product_id].sold += m.quantity;
-        } else if (m.type === 'cancellation') {
-          acc[m.product_id].sold -= m.quantity;
-        }
-        return acc;
-      }, {});
-
-      const cards = await api.getCards();
-      const cardMap = cards.reduce((acc: any, c: any) => ({ ...acc, [c.id]: c }), {});
-
-      products.forEach(p => {
-        if (productInfo[p.id]) {
-          productInfo[p.id].price = p.price;
-          productInfo[p.id].cost = p.cost || 0;
-          productInfo[p.id].stock = p.stock;
-        }
-      });
-
-      let totalNetProfit = 0;
-      Object.values(productInfo).forEach((p: any) => {
-        const subtotal = p.price ? p.sold * p.price : 0;
-        const totalCost = p.cost ? p.sold * p.cost : 0;
-        const netProfit = subtotal - totalCost;
-        if (netProfit > 0) {
-          totalNetProfit += netProfit;
-        }
-        combinedData.push({
-          'Col1': p.name,
-          'Col2': p.sold,
-          'Col3': p.price || '-',
-          'Col4': p.cost || '-',
-          'Col5': p.price ? p.sold * p.price : '-',
-          'Col6': p.cost ? p.sold * p.cost : '-',
-          'Col7': netProfit > 0 ? netProfit : '-',
-          'Col8': p.stock || '-'
-        });
-      });
-
-      combinedData.push({ 'Col1': '', 'Col2': '' });
-      combinedData.push({ 'Col1': 'GANANCIA NETA TOTAL', 'Col2': totalNetProfit.toFixed(2) });
-
-      combinedData.push({ 'Col1': '', 'Col2': '' });
-      combinedData.push({ 'Col1': 'VENTAS POR TARJETA', 'Col2': '' });
-      combinedData.push({ 'Col1': 'Tarjeta', 'Col2': 'Banco', 'Col3': 'Total', 'Col4': 'Transacciones' });
-      
-      const cardStats: any = {};
-      data.sales.forEach((s: any) => {
-        if (s.cancelled) return;
-        if (s.card_id && cardMap[s.card_id]) {
-          const card = cardMap[s.card_id];
-          if (!cardStats[card.id]) cardStats[card.id] = { name: card.name, bank: card.bank, total: 0, count: 0 };
-          let amountForCard = s.total;
-          if (s.payment_method === 'split' && s.payments?.length) {
-            const transferPayment = s.payments.find((p: any) => p.method === 'transfer');
-            amountForCard = transferPayment ? transferPayment.amount : 0;
-          }
-          cardStats[card.id].total += amountForCard;
-          cardStats[card.id].count += 1;
-        }
-      });
-      
-      Object.values(cardStats).forEach((cs: any) => {
-        combinedData.push({ 'Col1': cs.name, 'Col2': cs.bank, 'Col3': cs.total.toFixed(2), 'Col4': cs.count });
-      });
-
-      combinedData.push({ 'Col1': '', 'Col2': '' });
-      combinedData.push({ 'Col1': 'DETALLE DE MERMAS Y BAJAS', 'Col2': '' });
-      combinedData.push({ 'Col1': 'Producto', 'Col2': 'Cant. Perdida', 'Col3': 'Motivo', 'Col4': 'Fecha/Hora' });
-
-      data.movements
-        .filter((m: any) => m.type === 'waste')
-        .forEach((m: any) => {
-          combinedData.push({
-            'Col1': m.product_name || 'Producto Desconocido',
-            'Col2': m.quantity,
-            'Col3': m.reason,
-            'Col4': format(new Date(m.timestamp), 'dd/MM/yyyy HH:mm')
-          });
-        });
-
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(combinedData, { skipHeader: true });
-      XLSX.utils.book_append_sheet(wb, ws, "Reporte Completo");
-
-      const fileName = `Reporte_VentasPro_Jornada_${sessionId}_${sessionDate}.xlsx`;
-
-      if (Capacitor.isNativePlatform()) {
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-        
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: wbout,
-          directory: Directory.Cache,
-        });
-
-        await Share.share({
-          title: 'Exportar Reporte Excel',
-          text: `Reporte de Jornada #${sessionId}`,
-          url: result.uri,
-          dialogTitle: 'Compartir Reporte',
-        });
-      } else {
-        XLSX.writeFile(wb, fileName);
-      }
-    } catch (e: any) {
-      console.error("Excel export error:", e);
-      alert("Error al exportar Excel: " + (e.message || "Error desconocido"));
-    }
-  };
-
-  const totals = reportData?.sales.reduce((acc, s) => {
-    if (s.cancelled) return acc;
-    if (s.payment_method === 'cash') {
-      acc.cash += s.total;
-    } else if (s.payment_method === 'transfer') {
-      acc.transfer += s.total;
-    } else if (s.payment_method === 'split') {
-      const payments = s.payments || [];
-      if (payments.length === 0 && s.payments_json) {
-        try {
-          const parsed = JSON.parse(s.payments_json);
-          payments.push(...parsed);
-        } catch (e) { console.error('JSON parse error', e); }
-      }
-      
-      payments.forEach((p: any) => {
-        if (p.method === 'cash') acc.cash += p.amount;
-        else if (p.method === 'transfer') acc.transfer += p.amount;
-      });
-      
-      if (payments.length === 0) {
-        console.warn('Sale split without payments data:', s.id);
-      }
-    } else {
-      console.warn('Unknown payment method:', s.payment_method);
-    }
-    acc.total += s.total;
-    return acc;
-  }, { cash: 0, transfer: 0, total: 0 }) || { cash: 0, transfer: 0, total: 0 };
+      },
+      { cash: 0, transfer: 0, total: 0 }
+    ) || { cash: 0, transfer: 0, total: 0 };
 
   return (
     <div className="space-y-6">
@@ -322,20 +195,27 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
         </button>
         {showSalesList && (
           <div className="max-h-40 overflow-y-auto border-t border-stone-100">
-            {reportData?.sales.filter((s: any) => !s.cancelled).length === 0 ? (
+            {reportData?.sales.filter(s => !s.cancelled).length === 0 ? (
               <div className="p-4 text-center text-stone-400 text-sm italic">No hay ventas en esta jornada</div>
             ) : (
-              reportData?.sales.filter((s: any) => !s.cancelled).map((sale: any) => {
-                const itemSummary = sale.items?.map((i: any) => `${i.quantity}x ${i.product_name || 'Producto'}`).join(', ') || '';
-                const paymentLabel = sale.payment_method === 'cash' ? 'Efectivo'
-                  : sale.payment_method === 'transfer' ? 'Transferencia'
-                  : sale.payments?.map((p: any) => `${p.method === 'cash' ? 'Efectivo' : 'Trans'}: $${p.amount.toFixed(2)}`).join(' · ') || 'Combinado';
+              reportData?.sales.filter(s => !s.cancelled).map(sale => {
+                const itemSummary =
+                  sale.items?.map((i: any) => `${i.quantity}x ${i.product_name || 'Producto'}`).join(', ') || '';
+                const paymentLabel =
+                  sale.payment_method === 'cash'
+                    ? 'Efectivo'
+                    : sale.payment_method === 'transfer'
+                      ? 'Transferencia'
+                      : sale.payments
+                          ?.map(
+                            (p: any) =>
+                              `${p.method === 'cash' ? 'Efectivo' : 'Trans'}: $${p.amount.toFixed(2)}`
+                          )
+                          .join(' · ') || 'Combinado';
                 return (
                   <div key={sale.id} className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0">
                     <div className="min-w-0 flex-1 mr-2">
-                      <div className="text-xs font-bold text-stone-800 truncate">
-                        {itemSummary}
-                      </div>
+                      <div className="text-xs font-bold text-stone-800 truncate">{itemSummary}</div>
                       <div className="text-[10px] text-stone-400">
                         ${sale.total.toFixed(2)} · {paymentLabel}
                         {sale.created_at && ` · ${format(new Date(sale.created_at), 'HH:mm')}`}
@@ -352,25 +232,33 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
                 );
               })
             )}
-            {reportData?.sales.filter((s: any) => s.cancelled).length > 0 && (
+            {reportData?.sales.filter(s => s.cancelled).length > 0 && (
               <>
-                <div className="px-3 py-2 text-[10px] uppercase font-bold text-stone-400 bg-stone-50">Ventas Anuladas</div>
-                {reportData?.sales.filter((s: any) => s.cancelled).map((sale: any) => {
-                  const itemSummary = sale.items?.map((i: any) => `${i.quantity}x ${i.product_name || 'Producto'}`).join(', ') || '';
-                  return (
-                    <div key={sale.id} className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0 opacity-50">
-                      <div className="min-w-0 flex-1 mr-2">
-                        <div className="text-xs font-bold text-stone-500 line-through truncate">
-                          {itemSummary}
-                        </div>
-                        <div className="text-[10px] text-stone-400">
-                          ${sale.total.toFixed(2)} · Anulada
-                          {sale.created_at && ` · ${format(new Date(sale.created_at), 'HH:mm')}`}
+                <div className="px-3 py-2 text-[10px] uppercase font-bold text-stone-400 bg-stone-50">
+                  Ventas Anuladas
+                </div>
+                {reportData?.sales
+                  .filter(s => s.cancelled)
+                  .map(sale => {
+                    const itemSummary =
+                      sale.items?.map((i: any) => `${i.quantity}x ${i.product_name || 'Producto'}`).join(', ') || '';
+                    return (
+                      <div
+                        key={sale.id}
+                        className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0 opacity-50"
+                      >
+                        <div className="min-w-0 flex-1 mr-2">
+                          <div className="text-xs font-bold text-stone-500 line-through truncate">
+                            {itemSummary}
+                          </div>
+                          <div className="text-[10px] text-stone-400">
+                            ${sale.total.toFixed(2)} · Anulada
+                            {sale.created_at && ` · ${format(new Date(sale.created_at), 'HH:mm')}`}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </>
             )}
           </div>
@@ -378,20 +266,22 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
       </div>
 
       <div className="space-y-3">
-        <button 
+        <button
           disabled={isClosing}
           onClick={() => setShowConfirmClose(true)}
           className={cn(
-            "w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all",
-            "bg-rose-600 text-white shadow-lg shadow-rose-100 active:scale-95 disabled:opacity-50"
+            'w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all',
+            'bg-rose-600 text-white shadow-lg shadow-rose-100 active:scale-95 disabled:opacity-50'
           )}
         >
           <XCircle size={20} />
-          {isClosing ? "Cerrando..." : "Cerrar Jornada Actual"}
+          {isClosing ? 'Cerrando...' : 'Cerrar Jornada Actual'}
         </button>
 
-        <button 
-          onClick={() => reportData && exportSessionExcel(reportData.session.id, format(new Date(), 'yyyy-MM-dd'))}
+        <button
+          onClick={() =>
+            reportData && handleExportExcel(reportData.session.id, format(new Date(), 'yyyy-MM-dd'))
+          }
           className="w-full py-4 rounded-2xl font-bold bg-white border-2 border-stone-200 text-stone-700 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <FileSpreadsheet size={20} />
@@ -402,7 +292,7 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
       <AnimatePresence>
         {showConfirmClose && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -415,15 +305,15 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
               <p className="text-stone-500 text-sm mb-8">
                 Esta acción bloqueará las ventas actuales y reiniciará los totales para una nueva jornada.
               </p>
-              
+
               <div className="flex flex-col gap-3">
-                <button 
+                <button
                   onClick={handleCloseDay}
                   className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-100 active:scale-95 transition-transform"
                 >
                   Sí, Cerrar Jornada
                 </button>
-                <button 
+                <button
                   onClick={() => setShowConfirmClose(false)}
                   className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
                 >
@@ -439,39 +329,42 @@ export function ReportsTab({ products, onSessionClose, onProductsChange }: { pro
         <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4">Historial de Jornadas</h3>
         <div className="space-y-3">
           {history.map(session => (
-            <React.Fragment key={session.id}>
-              <div className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="font-bold text-stone-800 truncate">{session.name || `Jornada #${session.id}`}</div>
-                  <div className="text-[10px] text-stone-400">
-                    Cerrada: {session.end_time ? format(new Date(session.end_time), 'dd/MM/yyyy HH:mm') : 'N/A'}
-                  </div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button 
-                    onClick={() => handleEditSession(session)}
-                    className="text-stone-500 p-2 bg-stone-100 rounded-xl active:scale-90 transition-transform"
-                    title="Editar nombre"
-                  >
-                    <Edit size={18} />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteSession(session.id)}
-                    className="text-rose-500 p-2 bg-rose-50 rounded-xl active:scale-90 transition-transform"
-                    title="Eliminar jornada"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                  <button 
-                    onClick={() => exportSessionExcel(session.id, format(new Date(session.end_time || ''), 'yyyy-MM-dd'))}
-                    className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
-                    title="Exportar Excel"
-                  >
-                    <FileSpreadsheet size={18} />
-                  </button>
+            <div key={session.id} className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-stone-800 truncate">{session.name || `Jornada #${session.id}`}</div>
+                <div className="text-[10px] text-stone-400">
+                  Cerrada: {session.end_time ? format(new Date(session.end_time), 'dd/MM/yyyy HH:mm') : 'N/A'}
                 </div>
               </div>
-            </React.Fragment>
+              <div className="flex gap-1 shrink-0">
+                <button
+                  onClick={() => handleEditSession(session)}
+                  className="text-stone-500 p-2 bg-stone-100 rounded-xl active:scale-90 transition-transform"
+                  title="Editar nombre"
+                >
+                  <Edit size={18} />
+                </button>
+                <button
+                  onClick={() => handleDeleteSession(session.id)}
+                  className="text-rose-500 p-2 bg-rose-50 rounded-xl active:scale-90 transition-transform"
+                  title="Eliminar jornada"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <button
+                  onClick={() =>
+                    handleExportExcel(
+                      session.id,
+                      format(new Date(session.end_time || ''), 'yyyy-MM-dd')
+                    )
+                  }
+                  className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
+                  title="Exportar Excel"
+                >
+                  <FileSpreadsheet size={18} />
+                </button>
+              </div>
+            </div>
           ))}
           {history.length === 0 && (
             <div className="text-center py-8 text-stone-400 text-sm italic">Aún no hay jornadas cerradas</div>
