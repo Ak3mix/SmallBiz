@@ -1,6 +1,7 @@
 import { Image as ImageIcon, Package } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
+import { useDebounce } from '../hooks/useDebounce';
 import type { Product } from '../types';
 
 interface VenderGridProps {
@@ -14,6 +15,7 @@ interface VenderGridProps {
 }
 
 export function VenderGrid({ products, searchQuery, selectedCategory, categories, onSearchChange, onCategoryChange, onAddToCart }: VenderGridProps) {
+  const debouncedSearch = useDebounce(searchQuery, 300);
   return (
     <motion.div
       key="vender"
@@ -56,7 +58,7 @@ export function VenderGrid({ products, searchQuery, selectedCategory, categories
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {products
             .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
-            .filter(p => searchQuery === '' || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+            .filter(p => debouncedSearch === '' || p.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
             .sort((a, b) => a.name.localeCompare(b.name))
             .map(product => (
               <button

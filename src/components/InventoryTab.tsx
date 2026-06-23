@@ -11,6 +11,7 @@ import {
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { cn } from '../utils/cn';
+import { useDebounce } from '../hooks/useDebounce';
 import { dataTransferService } from '../services/dataTransferService';
 import { api } from '../services/api';
 import { ProductFormModal } from './ProductFormModal';
@@ -30,11 +31,12 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))] as string[];
   const filteredProducts = products
     .filter(p => selectedCategory === 'all' || p.category === selectedCategory)
-    .filter(p => searchQuery === '' || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(p => debouncedSearch === '' || p.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const [cards, setCards] = useState<Card[]>([]);
