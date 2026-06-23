@@ -71,7 +71,7 @@ jobs:
       - name: Sign APK
         run: |
           sudo apt-get install -y apksigner
-          UNSIGNED_APK=$(find android/app/build/outputs/apk/release -name "*-release-unsigned.apk" | head -n 1)
+          UNSIGNED_APK=$(find android/app/build/outputs/apk/release -name "*-universal-release-unsigned.apk" | head -n 1)
           echo "Signing: $UNSIGNED_APK"
           apksigner sign --ks android/my-upload-key.keystore --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} --ks-pass pass:${{ secrets.ANDROID_KEY_PASSWORD }} --key-pass pass:${{ secrets.ANDROID_KEY_PASSWORD }} --out android/app/build/outputs/apk/release/App_de_Ventas_v1.1.${{ github.run_number }}.apk "$UNSIGNED_APK"
 
