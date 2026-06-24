@@ -34,7 +34,7 @@ jobs:
       # Decode Keystore
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/my-upload-key.keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/smallbiz-upload-key.keystore
 
       # Cambiar el nombre de la app dinámicamente y la versión
       - name: Update App Name and Version
