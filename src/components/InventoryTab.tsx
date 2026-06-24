@@ -14,6 +14,7 @@ import { cn } from '../utils/cn';
 import { useDebounce } from '../hooks/useDebounce';
 import { dataTransferService } from '../services/dataTransferService';
 import { api } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import { ProductFormModal } from './ProductFormModal';
 import type { ProductFormData } from './ProductFormModal';
 import { CardFormModal } from './CardFormModal';
@@ -22,6 +23,7 @@ import { MoveInventoryModal } from './MoveInventoryModal';
 import type { Product, Card } from '../types';
 
 export function InventoryTab({ products, onUpdate }: { products: Product[]; onUpdate: () => void }) {
+  const { addToast } = useToast();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'products' | 'cards'>('products');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -42,6 +44,8 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
   const [cards, setCards] = useState<Card[]>([]);
   const [showCardForm, setShowCardForm] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
+  const [deletingCardId, setDeletingCardId] = useState<number | null>(null);
+  const [isDeletingCard, setIsDeletingCard] = useState(false);
 
   const fetchCards = async () => {
     const data = await api.getCards();
@@ -63,10 +67,18 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
     fetchCards();
   };
 
-  const handleDeleteCard = async (id: number) => {
-    if (confirm('¿Eliminar esta tarjeta?')) {
-      await api.deleteCard(id);
+  const handleDeleteCardConfirm = async () => {
+    if (deletingCardId === null) return;
+    setIsDeletingCard(true);
+    try {
+      await api.deleteCard(deletingCardId);
+      setDeletingCardId(null);
       fetchCards();
+    } catch (e) {
+      console.error(e);
+      addToast('Error al eliminar la tarjeta', 'error');
+    } finally {
+      setIsDeletingCard(false);
     }
   };
 
@@ -83,7 +95,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
       onUpdate();
     } catch (error: any) {
       const errorMsg = error.message || error.code || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert('Error al guardar el producto: ' + errorMsg);
+      addToast('Error al guardar el producto: ' + errorMsg, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -98,7 +110,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
       onUpdate();
     } catch (error: any) {
       const errorMsg = error.message || error.code || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert('Error al eliminar el producto: ' + errorMsg);
+      addToast('Error al eliminar el producto: ' + errorMsg, 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -117,11 +129,11 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
         setMovingProduct(null);
         onUpdate();
       } else {
-        alert('Error en el movimiento');
+        addToast('Error en el movimiento', 'error');
       }
     } catch (error: any) {
       const errorMsg = error.message || error.code || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert('Error en el movimiento: ' + errorMsg);
+      addToast('Error en el movimiento: ' + errorMsg, 'error');
     }
   };
 
@@ -157,14 +169,15 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                 onClick={async () => {
                   try {
                     await dataTransferService.exportDatabase();
-                    alert('Exportación exitosa');
+                    addToast('Exportación exitosa', 'success');
                   } catch (e: any) {
                     console.error('Export error:', e);
-                    alert('Error al exportar: ' + (e.message || e.code || JSON.stringify(e)));
+                    addToast('Error al exportar: ' + (e.message || e.code || JSON.stringify(e)), 'error');
                   }
                 }}
                 className="bg-stone-100 text-stone-900 p-2 rounded-xl active:scale-95 transition-transform"
                 title="Exportar Datos"
+                aria-label="Exportar datos"
               >
                 <FileSpreadsheet size={20} />
               </button>
@@ -180,16 +193,17 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                       const fileRead = await Filesystem.readFile({ path: file.path });
 
                       await dataTransferService.importDatabase(fileRead.data as string);
-                      alert('Importación exitosa, la app se reiniciará');
-                      window.location.reload();
+                      addToast('Importación exitosa, la app se reiniciará', 'success');
+                      setTimeout(() => window.location.reload(), 1500);
                     }
                   } catch (e: any) {
                     console.error('Import error:', e);
-                    alert('Error al importar: ' + (e.message || JSON.stringify(e)));
+                    addToast('Error al importar: ' + (e.message || JSON.stringify(e)), 'error');
                   }
                 }}
                 className="bg-stone-100 text-stone-900 p-2 rounded-xl active:scale-95 transition-transform"
                 title="Importar Datos"
+                aria-label="Importar datos"
               >
                 <ArrowDownCircle size={20} />
               </button>
@@ -199,6 +213,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                   setShowAddProduct(true);
                 }}
                 className="bg-stone-900 text-white p-2 rounded-xl shadow-lg active:scale-95 transition-transform shrink-0"
+                aria-label="Añadir producto"
               >
                 <Plus size={20} />
               </button>
@@ -231,6 +246,11 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
           )}
 
           <div className="space-y-3">
+            {filteredProducts.length === 0 && products.length > 0 && (
+              <div className="text-center py-12 text-stone-400">
+                <p className="font-medium">No se encontraron productos</p>
+              </div>
+            )}
             {filteredProducts.map(product => (
               <div
                 key={product.id}
@@ -275,20 +295,18 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                 </div>
                 <div className="flex gap-2 justify-end">
                   <button
-                    onClick={() => {
-                      setMovingProduct(product);
-                    }}
+                    onClick={() => setMovingProduct(product)}
                     className="bg-blue-50 text-blue-600 p-2.5 rounded-xl hover:bg-blue-100 transition-colors flex-1 flex justify-center shrink-0"
                     title="Reabastecer"
+                    aria-label={`Reabastecer ${product.name}`}
                   >
                     <ArrowUpCircle size={20} />
                   </button>
                   <button
-                    onClick={() => {
-                      setMovingProduct(product);
-                    }}
+                    onClick={() => setMovingProduct(product)}
                     className="bg-rose-50 text-rose-600 p-2.5 rounded-xl hover:bg-rose-100 transition-colors flex-1 flex justify-center shrink-0"
                     title="Merma"
+                    aria-label={`Registrar merma de ${product.name}`}
                   >
                     <ArrowDownCircle size={20} />
                   </button>
@@ -299,6 +317,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                     }}
                     className="bg-stone-50 text-stone-600 p-2.5 rounded-xl hover:bg-stone-100 transition-colors flex-1 flex justify-center shrink-0"
                     title="Editar"
+                    aria-label={`Editar ${product.name}`}
                   >
                     <Edit size={20} />
                   </button>
@@ -306,6 +325,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                     onClick={() => setDeletingProduct(product)}
                     className="bg-stone-50 text-rose-400 p-2.5 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-colors flex-1 flex justify-center shrink-0"
                     title="Eliminar"
+                    aria-label={`Eliminar ${product.name}`}
                   >
                     <Trash2 size={20} />
                   </button>
@@ -324,6 +344,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                 setShowCardForm(true);
               }}
               className="bg-stone-900 text-white p-2 rounded-xl"
+              aria-label="Añadir tarjeta"
             >
               <Plus size={20} />
             </button>
@@ -344,10 +365,15 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                       setShowCardForm(true);
                     }}
                     className="text-stone-600"
+                    aria-label={`Editar ${card.name}`}
                   >
                     <Edit size={18} />
                   </button>
-                  <button onClick={() => handleDeleteCard(card.id)} className="text-rose-500">
+                  <button
+                    onClick={() => setDeletingCardId(card.id)}
+                    className="text-rose-500"
+                    aria-label={`Eliminar ${card.name}`}
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -389,6 +415,16 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
         isDeleting={isDeleting}
         onConfirm={handleDeleteProduct}
         onClose={() => setDeletingProduct(null)}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!deletingCardId}
+        itemName="esta tarjeta"
+        title="¿Eliminar Tarjeta?"
+        message="Esta acción no se puede deshacer."
+        isDeleting={isDeletingCard}
+        onConfirm={handleDeleteCardConfirm}
+        onClose={() => setDeletingCardId(null)}
       />
 
       <MoveInventoryModal

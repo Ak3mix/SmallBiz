@@ -6,6 +6,7 @@ import { dbService } from './services/database';
 import { MigrationService } from './services/migration';
 import { cn } from './utils/cn';
 import { usePersistedCart } from './hooks/usePersistedCart';
+import { useToast } from './contexts/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavButton } from './components/NavButton';
 import { InventoryTab } from './components/InventoryTab';
@@ -15,7 +16,14 @@ import { CartModal } from './components/CartModal';
 import { PaymentModal } from './components/PaymentModal';
 import type { Product, Session, Card, SaleInput } from './types';
 
+const tabLabels: Record<string, string> = {
+  vender: 'Vender',
+  inventario: 'Inventario',
+  reportes: 'Cierre',
+};
+
 export default function App() {
+  const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'vender' | 'inventario' | 'reportes'>('vender');
   const [products, setProducts] = useState<Product[]>([]);
   const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, cartQuantity } = usePersistedCart();
@@ -73,7 +81,6 @@ export default function App() {
     init();
   }, []);
 
-  // Helper function to initialize split payments when selecting payment method
   const initializeSplitPayments = (method: 'cash' | 'transfer' | 'split') => {
     setPaymentMethod(method);
     if (method === 'cash') {
@@ -93,7 +100,6 @@ export default function App() {
     }
   };
 
-  // Helper function to handle cash input change
   const handleCashInputChange = (value: string) => {
     setCashInput(value);
     const cashNum = parseFloat(value) || 0;
@@ -102,7 +108,6 @@ export default function App() {
     setTransferInput(transferNum.toFixed(2));
   };
 
-  // Helper function to handle transfer input change
   const handleTransferInputChange = (value: string) => {
     setTransferInput(value);
     const transferNum = parseFloat(value) || 0;
@@ -114,17 +119,15 @@ export default function App() {
   const handleProcessSale = async () => {
     if (!paymentMethod) return;
     if ((paymentMethod === 'transfer' || paymentMethod === 'split') && !selectedCardId) {
-      alert("Por favor selecciona una tarjeta de destino.");
+      addToast("Por favor selecciona una tarjeta de destino.", 'error');
       return;
     }
     setLoading(true);
     try {
-      // Calculate final amounts based on payment method
       let finalPaymentMethod = paymentMethod;
       let finalPayments = undefined;
-      
+
       if (paymentMethod === 'split') {
-        // For split payment, use the actual values from splitPayments state
         finalPayments = [
           { method: 'cash' as const, amount: splitPayments.cash },
           { method: 'transfer' as const, amount: splitPayments.transfer }
@@ -134,7 +137,7 @@ export default function App() {
       } else if (paymentMethod === 'transfer') {
         finalPayments = [{ method: 'transfer' as const, amount: cartTotal }];
       }
-      
+
       const saleData: SaleInput = {
         items: cart,
         payment_method: finalPaymentMethod,
@@ -143,7 +146,7 @@ export default function App() {
         timestamp: new Date().toISOString(),
         card_id: (paymentMethod === 'transfer' || paymentMethod === 'split') ? selectedCardId : null
       };
-      
+
       const res = await api.createSale(saleData);
       if (res) {
         clearCart();
@@ -154,14 +157,14 @@ export default function App() {
         setCashInput('');
         setTransferInput('');
         await fetchProducts();
-        alert("¡Venta realizada con éxito!");
+        addToast("¡Venta realizada con éxito!", 'success');
       } else {
-        alert("Error al procesar la venta");
+        addToast("Error al procesar la venta", 'error');
       }
     } catch (error: any) {
       console.error("handlePay error:", error);
       const errorMsg = error.message || error.code || (typeof error === 'string' ? error : JSON.stringify(error));
-      alert("Error al procesar el pago: " + errorMsg);
+      addToast("Error al procesar el pago: " + errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -178,7 +181,7 @@ export default function App() {
               "bg-emerald-500"
             )} />
             <span className="text-xs font-medium uppercase tracking-widest text-stone-500">
-              {activeTab}
+              {tabLabels[activeTab]}
             </span>
           </div>
         </div>
@@ -236,22 +239,21 @@ export default function App() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-200 p-2 pb-safe flex justify-around items-center z-40">
-        <NavButton active={activeTab === 'vender'} onClick={() => setActiveTab('vender')} icon={<ShoppingCart size={20} />} label="Vender" />
-        <NavButton active={activeTab === 'inventario'} onClick={() => setActiveTab('inventario')} icon={<Package size={20} />} label="Inventario" />
-        <NavButton active={activeTab === 'reportes'} onClick={() => setActiveTab('reportes')} icon={<ClipboardList size={20} />} label="Cierre" />
+        <NavButton active={activeTab === 'vender'} onClick={() => setActiveTab('vender')} icon={<ShoppingCart size={20} />} label="Vender" ariaLabel="Ir a Vender" />
+        <NavButton active={activeTab === 'inventario'} onClick={() => setActiveTab('inventario')} icon={<Package size={20} />} label="Inventario" ariaLabel="Ir a Inventario" />
+        <NavButton active={activeTab === 'reportes'} onClick={() => setActiveTab('reportes')} icon={<ClipboardList size={20} />} label="Cierre" ariaLabel="Ir a Cierre" />
       </nav>
 
-      {/* Sticky Cart Summary */}
       <AnimatePresence>
         {activeTab === 'vender' && cart.length > 0 && (
-          <motion.div 
+          <motion.div
             initial={{ y: 100 }}
             animate={{ y: 0 }}
             exit={{ y: 100 }}
             className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-0 right-0 p-4 z-30 pointer-events-none"
           >
             <div className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto pointer-events-auto">
-              <button 
+              <button
                 onClick={() => setShowCartModal(true)}
                 className="w-full bg-stone-900 text-white p-4 rounded-2xl shadow-2xl flex justify-between items-center active:scale-95 transition-transform"
               >

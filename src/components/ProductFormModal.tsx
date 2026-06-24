@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { cn } from '../utils/cn';
+import { Modal } from './Modal';
 import { ImagePicker } from './ImagePicker';
 import { MigrationService } from '../services/migration';
 import type { Product } from '../types';
@@ -29,6 +29,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
   const [stock, setStock] = useState('');
   const [category, setCategory] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ name?: string; price?: string; stock?: string }>({});
 
   useEffect(() => {
     if (initialData) {
@@ -46,24 +47,33 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
       setCategory('');
       setImage(null);
     }
+    setErrors({});
   }, [initialData, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors: typeof errors = {};
 
     const priceNum = parseFloat(price);
     const costNum = parseFloat(cost) || 0;
     const stockNum = parseInt(stock);
 
-    if (isNaN(priceNum) || isNaN(stockNum)) {
-      alert('Por favor ingresa valores numéricos válidos (Precio y Stock)');
+    if (!name.trim()) {
+      newErrors.name = 'El nombre del producto es obligatorio';
+    }
+    if (isNaN(priceNum)) {
+      newErrors.price = 'Ingresa un valor numérico válido';
+    }
+    if (isNaN(stockNum)) {
+      newErrors.stock = 'Ingresa un número válido';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
-    if (!name.trim()) {
-      alert('El nombre del producto es obligatorio');
-      return;
-    }
+    setErrors({});
 
     const processedImage = image && image.startsWith('data:image')
       ? await MigrationService.saveImage(image)
@@ -84,92 +94,94 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
   const isEditing = !!initialData;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl"
-      >
-        <form onSubmit={handleSubmit}>
-          <h3 className="text-xl font-black mb-6">{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h3>
-          <div className="space-y-4 mb-8">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Editar Producto' : 'Nuevo Producto'}>
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4 mb-8">
+          <div>
+            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Nombre</label>
+            <input
+              value={name}
+              onChange={e => { setName(e.target.value); setErrors(prev => ({ ...prev, name: undefined })); }}
+              required
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'product-name-error' : undefined}
+              className="w-full bg-stone-50 border-none rounded-xl p-3 font-bold"
+            />
+            {errors.name && <p id="product-name-error" className="text-xs text-rose-500 mt-1">{errors.name}</p>}
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Categoría</label>
+            <input
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              placeholder="Ej: Bebidas, Snacks, etc."
+              className="w-full bg-stone-50 border-none rounded-xl p-3"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Foto del producto</label>
+            <ImagePicker
+              currentImage={image}
+              onImageCapture={setImage}
+              onImageClear={() => setImage(null)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Nombre</label>
+              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Precio</label>
               <input
-                value={name}
-                onChange={e => setName(e.target.value)}
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={e => { setPrice(e.target.value); setErrors(prev => ({ ...prev, price: undefined })); }}
                 required
-                className="w-full bg-stone-50 border-none rounded-xl p-3 font-bold"
+                aria-invalid={!!errors.price}
+                aria-describedby={errors.price ? 'product-price-error' : undefined}
+                className="w-full bg-stone-50 border-none rounded-xl p-3"
               />
+              {errors.price && <p id="product-price-error" className="text-xs text-rose-500 mt-1">{errors.price}</p>}
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Categoría</label>
+              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Costo</label>
               <input
-                value={category}
-                onChange={e => setCategory(e.target.value)}
-                placeholder="Ej: Bebidas, Snacks, etc."
+                type="number"
+                step="0.01"
+                min="0"
+                value={cost}
+                onChange={e => setCost(e.target.value)}
+                placeholder="0"
                 className="w-full bg-stone-50 border-none rounded-xl p-3"
               />
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Foto del producto</label>
-              <ImagePicker
-                currentImage={image}
-                onImageCapture={setImage}
-                onImageClear={() => setImage(null)}
+              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">
+                {isEditing ? 'Stock' : 'Stock Inicial'}
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={stock}
+                onChange={e => { setStock(e.target.value); setErrors(prev => ({ ...prev, stock: undefined })); }}
+                required
+                aria-invalid={!!errors.stock}
+                aria-describedby={errors.stock ? 'product-stock-error' : undefined}
+                className="w-full bg-stone-50 border-none rounded-xl p-3"
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Precio</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={price}
-                  onChange={e => setPrice(e.target.value)}
-                  required
-                  className="w-full bg-stone-50 border-none rounded-xl p-3"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Costo</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={cost}
-                  onChange={e => setCost(e.target.value)}
-                  placeholder="0"
-                  className="w-full bg-stone-50 border-none rounded-xl p-3"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">
-                  {isEditing ? 'Stock' : 'Stock Inicial'}
-                </label>
-                <input
-                  type="number"
-                  value={stock}
-                  onChange={e => setStock(e.target.value)}
-                  required
-                  className="w-full bg-stone-50 border-none rounded-xl p-3"
-                />
-              </div>
+              {errors.stock && <p id="product-stock-error" className="text-xs text-rose-500 mt-1">{errors.stock}</p>}
             </div>
           </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 font-bold text-stone-500">Cancelar</button>
-            <button type="submit" disabled={isSaving} className={cn(
-              "flex-1 py-3 text-white rounded-xl font-bold disabled:opacity-50",
-              isEditing ? "bg-emerald-600" : "bg-stone-900"
-            )}>
-              {isSaving ? (isEditing ? 'Actualizando...' : 'Guardando...') : (isEditing ? 'Actualizar' : 'Guardar')}
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="flex-1 py-3 font-bold text-stone-500">Cancelar</button>
+          <button type="submit" disabled={isSaving} className={cn(
+            "flex-1 py-3 text-white rounded-xl font-bold disabled:opacity-50",
+            isEditing ? "bg-emerald-600" : "bg-stone-900"
+          )}>
+            {isSaving ? (isEditing ? 'Actualizando...' : 'Guardando...') : (isEditing ? 'Actualizar' : 'Guardar')}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
-
-

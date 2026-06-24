@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Modal } from './Modal';
 
 interface Props {
   isOpen: boolean;
@@ -24,22 +24,15 @@ export function DeleteConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl text-center"
-      >
-        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
+    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+      <div className="flex flex-col items-center text-center">
+        <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-6">
           <Trash2 size={32} />
         </div>
-        <h3 className="text-xl font-black mb-2">{title}</h3>
         <p className="text-stone-500 text-sm mb-8">
           ¿Estás seguro de eliminar <span className="font-bold text-stone-800">{itemName}</span>? {message}
         </p>
-
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 w-full">
           <button
             disabled={isDeleting}
             onClick={onConfirm}
@@ -55,7 +48,7 @@ export function DeleteConfirmModal({
             Cancelar
           </button>
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </Modal>
   );
 }

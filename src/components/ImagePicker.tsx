@@ -4,6 +4,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
+import { useToast } from '../contexts/ToastContext';
 
 interface Props {
   currentImage?: string | null;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Props) {
+  const { addToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const takePhoto = async () => {
@@ -36,7 +38,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
         onImageCapture(base64Data);
       }
     } catch {
-      alert('Error al tomar la foto.');
+      addToast('Error al tomar la foto.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +54,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
 
         if (Capacitor.isNativePlatform()) {
           if (!file.path) {
-            alert('No se pudo obtener la ruta del archivo.');
+            addToast('No se pudo obtener la ruta del archivo.', 'error');
             return;
           }
 
@@ -74,7 +76,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
         }
       }
     } catch {
-      alert('Error al seleccionar el archivo.');
+      addToast('Error al seleccionar el archivo.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -88,6 +90,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
           type="button"
           onClick={onImageClear}
           className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full"
+          aria-label="Eliminar imagen"
         >
           <X size={14} />
         </button>
@@ -102,6 +105,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
         disabled={isLoading}
         onClick={takePhoto}
         className="flex flex-col items-center justify-center w-24 h-24 bg-emerald-50 rounded-xl border-2 border-emerald-200 disabled:opacity-50"
+        aria-label="Tomar foto"
       >
         <CameraIcon size={32} className="text-emerald-500" />
         <span className="text-[10px] text-emerald-600 mt-1 font-bold">Tomar foto</span>
@@ -111,6 +115,7 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
         disabled={isLoading}
         onClick={selectFile}
         className="flex flex-col items-center justify-center w-24 h-24 bg-blue-50 rounded-xl border-2 border-blue-200 disabled:opacity-50"
+        aria-label="Seleccionar imagen de galería"
       >
         <ImageIcon size={32} className="text-blue-500" />
         <span className="text-[10px] text-blue-600 mt-1 font-bold">Seleccionar</span>

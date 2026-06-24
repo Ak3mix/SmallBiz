@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { XCircle, FileSpreadsheet, Edit, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils/cn';
 import { format } from 'date-fns';
 import { api } from '../services/api';
 import { exportSessionExcel } from '../services/excelExportService';
+import { useToast } from '../contexts/ToastContext';
+import { Modal } from './Modal';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { Product, Sale, Session, Movement, Card } from '../types';
 
 export function ReportsTab({
@@ -16,6 +18,7 @@ export function ReportsTab({
   onSessionClose: () => void;
   onProductsChange: () => void;
 }) {
+  const { addToast } = useToast();
   const [reportData, setReportData] = useState<{
     sales: Sale[];
     movements: Movement[];
@@ -27,6 +30,9 @@ export function ReportsTab({
   const [editSession, setEditSession] = useState<Session | null>(null);
   const [editSessionName, setEditSessionName] = useState('');
   const [showSalesList, setShowSalesList] = useState(true);
+  const [deleteSessionId, setDeleteSessionId] = useState<number | null>(null);
+  const [cancelSaleId, setCancelSaleId] = useState<number | null>(null);
+  const [isDeletingSession, setIsDeletingSession] = useState(false);
 
   const fetchReport = async () => {
     try {
@@ -64,31 +70,36 @@ export function ReportsTab({
       fetchHistory();
     } catch (e) {
       console.error(e);
-      alert('Error al guardar el nombre');
+      addToast('Error al guardar el nombre', 'error');
     }
   };
 
-  const handleDeleteSession = async (id: number) => {
-    if (!confirm('¿Eliminar esta jornada? Se ocultará del historial.')) return;
+  const handleDeleteSessionConfirm = async () => {
+    if (deleteSessionId === null) return;
+    setIsDeletingSession(true);
     try {
-      await api.deleteSession(id);
+      await api.deleteSession(deleteSessionId);
+      setDeleteSessionId(null);
       fetchHistory();
     } catch (e) {
       console.error(e);
-      alert('Error al eliminar la jornada');
+      addToast('Error al eliminar la jornada', 'error');
+    } finally {
+      setIsDeletingSession(false);
     }
   };
 
-  const handleCancelSale = async (saleId: number) => {
-    if (!confirm('¿Anular esta venta? Se restaurará el stock de los productos.')) return;
+  const handleCancelSaleConfirm = async () => {
+    if (cancelSaleId === null) return;
     try {
-      await api.cancelSale(saleId);
+      await api.cancelSale(cancelSaleId);
+      setCancelSaleId(null);
       await fetchReport();
       onProductsChange();
-      alert('Venta anulada correctamente');
+      addToast('Venta anulada correctamente', 'success');
     } catch (e) {
       console.error(e);
-      alert('Error al anular la venta');
+      addToast('Error al anular la venta', 'error');
     }
   };
 
@@ -101,12 +112,12 @@ export function ReportsTab({
         await fetchReport();
         await fetchHistory();
         onSessionClose();
-        alert('Jornada cerrada correctamente. Se ha iniciado una nueva.');
+        addToast('Jornada cerrada correctamente. Se ha iniciado una nueva.', 'success');
       } else {
-        alert('No se pudo cerrar la jornada');
+        addToast('No se pudo cerrar la jornada', 'error');
       }
     } catch {
-      alert('Error al cerrar la jornada. Intente nuevamente.');
+      addToast('Error al cerrar la jornada. Intente nuevamente.', 'error');
     } finally {
       setIsClosing(false);
     }
@@ -126,7 +137,7 @@ export function ReportsTab({
       });
     } catch (e: any) {
       console.error('Excel export error:', e);
-      alert('Error al exportar Excel: ' + (e.message || 'Error desconocido'));
+      addToast('Error al exportar Excel: ' + (e.message || 'Error desconocido'), 'error');
     }
   };
 
@@ -222,9 +233,10 @@ export function ReportsTab({
                       </div>
                     </div>
                     <button
-                      onClick={() => handleCancelSale(sale.id)}
+                      onClick={() => setCancelSaleId(sale.id)}
                       className="text-rose-400 p-1.5 bg-rose-50 rounded-lg active:scale-90 transition-transform shrink-0"
                       title="Anular venta"
+                      aria-label="Anular venta"
                     >
                       <XCircle size={16} />
                     </button>
@@ -289,41 +301,91 @@ export function ReportsTab({
         </button>
       </div>
 
-      <AnimatePresence>
-        {showConfirmClose && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl text-center"
-            >
-              <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <XCircle size={32} />
-              </div>
-              <h3 className="text-xl font-black mb-2">¿Cerrar Jornada?</h3>
-              <p className="text-stone-500 text-sm mb-8">
-                Esta acción bloqueará las ventas actuales y reiniciará los totales para una nueva jornada.
-              </p>
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleCloseDay}
-                  className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-100 active:scale-95 transition-transform"
-                >
-                  Sí, Cerrar Jornada
-                </button>
-                <button
-                  onClick={() => setShowConfirmClose(false)}
-                  className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
-                >
-                  No, Continuar Vendiendo
-                </button>
-              </div>
-            </motion.div>
+      <Modal isOpen={showConfirmClose} onClose={() => setShowConfirmClose(false)} title="¿Cerrar Jornada?">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-6">
+            <XCircle size={32} />
           </div>
-        )}
-      </AnimatePresence>
+          <p className="text-stone-500 text-sm mb-8">
+            Esta acción bloqueará las ventas actuales y reiniciará los totales para una nueva jornada.
+          </p>
+          <div className="flex flex-col gap-3 w-full">
+            <button
+              onClick={handleCloseDay}
+              className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-100 active:scale-95 transition-transform"
+            >
+              Sí, Cerrar Jornada
+            </button>
+            <button
+              onClick={() => setShowConfirmClose(false)}
+              className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
+            >
+              No, Continuar Vendiendo
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!editSession} onClose={() => setEditSession(null)} title="Editar Jornada">
+        <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Nombre</label>
+        <input
+          type="text"
+          value={editSessionName}
+          onChange={e => setEditSessionName(e.target.value)}
+          className="w-full border border-stone-200 rounded-xl px-4 py-3 mt-1 mb-6 text-lg font-bold"
+          placeholder="Jornada #..."
+          autoFocus
+        />
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={handleSaveSessionName}
+            className="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold active:scale-95 transition-transform"
+          >
+            Guardar
+          </button>
+          <button
+            onClick={() => setEditSession(null)}
+            className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
+          >
+            Cancelar
+          </button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!cancelSaleId} onClose={() => setCancelSaleId(null)} title="Anular Venta">
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-6">
+            <XCircle size={32} />
+          </div>
+          <p className="text-stone-500 text-sm mb-8">
+            ¿Anular esta venta? Se restaurará el stock de los productos.
+          </p>
+          <div className="flex flex-col gap-3 w-full">
+            <button
+              onClick={handleCancelSaleConfirm}
+              className="w-full py-4 bg-rose-600 text-white rounded-2xl font-bold shadow-lg shadow-rose-100 active:scale-95 transition-transform"
+            >
+              Sí, Anular
+            </button>
+            <button
+              onClick={() => setCancelSaleId(null)}
+              className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <DeleteConfirmModal
+        isOpen={!!deleteSessionId}
+        itemName="esta jornada"
+        title="¿Eliminar Jornada?"
+        message="Se ocultará del historial."
+        isDeleting={isDeletingSession}
+        onConfirm={handleDeleteSessionConfirm}
+        onClose={() => setDeleteSessionId(null)}
+      />
 
       <div className="pt-8 border-t border-stone-200">
         <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4">Historial de Jornadas</h3>
@@ -341,13 +403,15 @@ export function ReportsTab({
                   onClick={() => handleEditSession(session)}
                   className="text-stone-500 p-2 bg-stone-100 rounded-xl active:scale-90 transition-transform"
                   title="Editar nombre"
+                  aria-label={`Editar nombre de ${session.name || 'jornada'}`}
                 >
                   <Edit size={18} />
                 </button>
                 <button
-                  onClick={() => handleDeleteSession(session.id)}
+                  onClick={() => setDeleteSessionId(session.id)}
                   className="text-rose-500 p-2 bg-rose-50 rounded-xl active:scale-90 transition-transform"
                   title="Eliminar jornada"
+                  aria-label={`Eliminar ${session.name || 'jornada'}`}
                 >
                   <Trash2 size={18} />
                 </button>
@@ -360,6 +424,7 @@ export function ReportsTab({
                   }
                   className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
                   title="Exportar Excel"
+                  aria-label={`Exportar Excel de ${session.name || 'jornada'}`}
                 >
                   <FileSpreadsheet size={18} />
                 </button>
@@ -371,44 +436,6 @@ export function ReportsTab({
           )}
         </div>
       </div>
-
-      <AnimatePresence>
-        {editSession && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
-            >
-              <h3 className="text-xl font-black mb-6">Editar Jornada</h3>
-              <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Nombre</label>
-              <input
-                type="text"
-                value={editSessionName}
-                onChange={e => setEditSessionName(e.target.value)}
-                className="w-full border border-stone-200 rounded-xl px-4 py-3 mt-1 mb-6 text-lg font-bold"
-                placeholder="Jornada #..."
-                autoFocus
-              />
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleSaveSessionName}
-                  className="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold active:scale-95 transition-transform"
-                >
-                  Guardar
-                </button>
-                <button
-                  onClick={() => setEditSession(null)}
-                  className="w-full py-4 text-stone-500 font-bold active:scale-95 transition-transform"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
