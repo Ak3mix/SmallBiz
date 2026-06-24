@@ -47,7 +47,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
           </p>
           {this.state.error && (
             <details className="mb-6 max-w-xs text-left">
-              <summary className="text-[10px] font-bold text-stone-400 cursor-pointer uppercase tracking-widest">
+              <summary className="text-[10px] font-bold text-stone-500 cursor-pointer uppercase tracking-widest">
                 Detalles técnicos
               </summary>
               <pre className="mt-2 text-[10px] text-rose-600 bg-rose-50 p-3 rounded-xl overflow-auto max-h-32">

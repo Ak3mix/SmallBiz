@@ -10,7 +10,7 @@ export function NavButton({ active, onClick, icon, label, ariaLabel }: { active:
       aria-current={active ? 'page' : undefined}
       className={cn(
         "flex flex-col items-center gap-1 p-2 transition-all relative",
-        active ? "text-emerald-600" : "text-stone-400"
+        active ? "text-emerald-600" : "text-stone-500"
       )}
     >
       {active && (

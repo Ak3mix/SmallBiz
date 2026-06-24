@@ -1,5 +1,6 @@
 import { Plus, Minus, Trash2, Image as ImageIcon } from 'lucide-react';
 import { Modal } from './Modal';
+import { formatCurrency } from '../utils/formatCurrency';
 import type { CartItem } from '../types';
 
 interface CartModalProps {
@@ -22,7 +23,7 @@ export function CartModal({ show, cart, cartTotal, onClose, onRemove, onUpdateQu
               <img
                 src={item.image}
                 alt={item.name}
-                className="w-16 h-16 object-contain rounded-xl bg-stone-100 shrink-0"
+                className="w-16 h-16 object-contain rounded-xl bg-stone-100 shrink-0" loading="lazy"
               />
             ) : (
               <div className="w-16 h-16 bg-stone-100 rounded-xl shrink-0 flex items-center justify-center">
@@ -31,13 +32,13 @@ export function CartModal({ show, cart, cartTotal, onClose, onRemove, onUpdateQu
             )}
             <div className="flex-1 min-w-0">
               <div className="font-bold text-stone-800 truncate">{item.name}</div>
-              <div className="text-xs text-stone-500">${item.price.toFixed(2)} c/u</div>
+              <div className="text-xs text-stone-500">{formatCurrency(item.price)} c/u</div>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center bg-white rounded-xl border border-stone-200 p-1">
+              <div className="flex items-center bg-white rounded-xl border border-stone-200">
                 <button
                   onClick={() => onUpdateQuantity(item.id, -1)}
-                  className="p-1 text-stone-400 hover:text-stone-600"
+                  className="p-3 text-stone-500 hover:text-stone-600"
                   aria-label="Reducir cantidad"
                 >
                   <Minus size={16} />
@@ -45,7 +46,7 @@ export function CartModal({ show, cart, cartTotal, onClose, onRemove, onUpdateQu
                 <span className="w-8 text-center font-bold">{item.quantity}</span>
                 <button
                   onClick={() => onUpdateQuantity(item.id, 1)}
-                  className="p-1 text-stone-400 hover:text-stone-600"
+                  className="p-3 text-stone-500 hover:text-stone-600"
                   aria-label="Aumentar cantidad"
                 >
                   <Plus size={16} />
@@ -53,7 +54,7 @@ export function CartModal({ show, cart, cartTotal, onClose, onRemove, onUpdateQu
               </div>
               <button
                 onClick={() => onRemove(item.id)}
-                className="text-rose-400 p-1"
+                className="text-rose-400 p-3"
                 aria-label={`Eliminar ${item.name} del carrito`}
               >
                 <Trash2 size={20} />
@@ -66,7 +67,7 @@ export function CartModal({ show, cart, cartTotal, onClose, onRemove, onUpdateQu
       <div className="pt-6 border-t border-stone-100 shrink-0">
         <div className="flex justify-between items-center mb-6">
           <span className="text-stone-500 font-bold uppercase text-xs tracking-widest">Total a pagar</span>
-          <span className="text-3xl font-black text-stone-900">${cartTotal.toFixed(2)}</span>
+          <span className="text-3xl font-black text-stone-900">{formatCurrency(cartTotal)}</span>
         </div>
         <button
           onClick={onProceedToPayment}

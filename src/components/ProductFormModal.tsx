@@ -98,7 +98,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
       <form onSubmit={handleSubmit}>
         <div className="space-y-4 mb-8">
           <div>
-            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Nombre</label>
+            <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Nombre</label>
             <input
               value={name}
               onChange={e => { setName(e.target.value); setErrors(prev => ({ ...prev, name: undefined })); }}
@@ -110,7 +110,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
             {errors.name && <p id="product-name-error" className="text-xs text-rose-500 mt-1">{errors.name}</p>}
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Categoría</label>
+            <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Categoría</label>
             <input
               value={category}
               onChange={e => setCategory(e.target.value)}
@@ -119,7 +119,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Foto del producto</label>
+            <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Foto del producto</label>
             <ImagePicker
               currentImage={image}
               onImageCapture={setImage}
@@ -128,7 +128,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Precio</label>
+              <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Precio</label>
               <input
                 type="number"
                 step="0.01"
@@ -143,7 +143,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
               {errors.price && <p id="product-price-error" className="text-xs text-rose-500 mt-1">{errors.price}</p>}
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Costo</label>
+              <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Costo</label>
               <input
                 type="number"
                 step="0.01"
@@ -155,7 +155,7 @@ export function ProductFormModal({ isOpen, initialData, isSaving = false, onSave
               />
             </div>
             <div>
-              <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">
+              <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">
                 {isEditing ? 'Stock' : 'Stock Inicial'}
               </label>
               <input

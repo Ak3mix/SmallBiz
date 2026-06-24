@@ -84,15 +84,15 @@ export function ImagePicker({ currentImage, onImageCapture, onImageClear }: Prop
 
   if (currentImage) {
     return (
-      <div className="relative">
+      <div className="relative inline-block">
         <img src={currentImage} alt="Vista previa" className="w-24 h-24 object-contain rounded-xl bg-stone-100" />
         <button
           type="button"
           onClick={onImageClear}
-          className="absolute -top-2 -right-2 bg-rose-500 text-white p-1 rounded-full"
+          className="absolute -top-2.5 -right-2.5 bg-rose-500 text-white p-1.5 rounded-full"
           aria-label="Eliminar imagen"
         >
-          <X size={14} />
+          <X size={16} />
         </button>
       </div>
     );

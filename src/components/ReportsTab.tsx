@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import { api } from '../services/api';
 import { exportSessionExcel } from '../services/excelExportService';
 import { useToast } from '../contexts/ToastContext';
+import { Skeleton } from './Skeleton';
+import { formatCurrency } from '../utils/formatCurrency';
 import { Modal } from './Modal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import type { Product, Sale, Session, Movement, Card } from '../types';
@@ -19,6 +21,7 @@ export function ReportsTab({
   onProductsChange: () => void;
 }) {
   const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<{
     sales: Sale[];
     movements: Movement[];
@@ -53,8 +56,12 @@ export function ReportsTab({
   };
 
   useEffect(() => {
-    fetchReport();
-    fetchHistory();
+    const load = async () => {
+      setLoading(true);
+      await Promise.all([fetchReport(), fetchHistory()]);
+      setLoading(false);
+    };
+    load();
   }, []);
 
   const handleEditSession = (session: Session) => {
@@ -175,24 +182,32 @@ export function ReportsTab({
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-black">Cierre de Jornada</h2>
         <span className="text-[10px] font-bold bg-stone-200 px-2 py-1 rounded-full uppercase">
-          ID: {reportData?.session.id}
+          ID: {loading ? <Skeleton.Box className="h-3 w-8 inline-block" /> : reportData?.session.id}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-emerald-50 p-4 rounded-3xl border border-emerald-100 flex flex-col justify-center">
-          <div className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Efectivo</div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-900 leading-none">${totals.cash.toFixed(2)}</div>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton.Box className="h-24 rounded-3xl" />
+          <Skeleton.Box className="h-24 rounded-3xl" />
+          <Skeleton.Box className="h-28 col-span-2 rounded-3xl" />
         </div>
-        <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100 flex flex-col justify-center">
-          <div className="text-[10px] uppercase font-bold text-blue-600 mb-1">Transferencia</div>
-          <div className="text-xl sm:text-2xl font-black text-blue-900 leading-none">${totals.transfer.toFixed(2)}</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-emerald-50 p-4 rounded-3xl border border-emerald-100 flex flex-col justify-center">
+            <div className="text-[10px] uppercase font-bold text-emerald-600 mb-1">Efectivo</div>
+            <div className="text-xl sm:text-2xl font-black text-emerald-900 leading-none">{formatCurrency(totals.cash)}</div>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-3xl border border-blue-100 flex flex-col justify-center">
+            <div className="text-[10px] uppercase font-bold text-blue-600 mb-1">Transferencia</div>
+            <div className="text-xl sm:text-2xl font-black text-blue-900 leading-none">{formatCurrency(totals.transfer)}</div>
+          </div>
+          <div className="col-span-2 bg-stone-900 p-6 rounded-3xl text-white shadow-xl">
+            <div className="text-[10px] uppercase font-bold text-stone-500 mb-1">Total Actual</div>
+            <div className="text-3xl sm:text-4xl font-black">{formatCurrency(totals.total)}</div>
+          </div>
         </div>
-        <div className="col-span-2 bg-stone-900 p-6 rounded-3xl text-white shadow-xl">
-          <div className="text-[10px] uppercase font-bold text-stone-400 mb-1">Total Actual</div>
-          <div className="text-3xl sm:text-4xl font-black">${totals.total.toFixed(2)}</div>
-        </div>
-      </div>
+      )}
 
       <div className="bg-white rounded-3xl border border-stone-200 overflow-hidden">
         <button
@@ -202,12 +217,12 @@ export function ReportsTab({
           <span className="font-bold text-stone-800">
             Ventas de la Jornada ({reportData?.sales.filter(s => !s.cancelled).length || 0})
           </span>
-          <span className="text-stone-400 text-sm">{showSalesList ? '▲' : '▼'}</span>
+          <span className="text-stone-500 text-sm">{showSalesList ? '▲' : '▼'}</span>
         </button>
         {showSalesList && (
           <div className="max-h-40 overflow-y-auto border-t border-stone-100">
             {reportData?.sales.filter(s => !s.cancelled).length === 0 ? (
-              <div className="p-4 text-center text-stone-400 text-sm italic">No hay ventas en esta jornada</div>
+              <div className="p-4 text-center text-stone-500 text-sm italic">No hay ventas en esta jornada</div>
             ) : (
               reportData?.sales.filter(s => !s.cancelled).map(sale => {
                 const itemSummary =
@@ -220,21 +235,21 @@ export function ReportsTab({
                       : sale.payments
                           ?.map(
                             p =>
-                              `${p.method === 'cash' ? 'Efectivo' : 'Trans'}: $${p.amount.toFixed(2)}`
+                              `${p.method === 'cash' ? 'Efectivo' : 'Trans'}: ${formatCurrency(p.amount)}`
                           )
                           .join(' · ') || 'Combinado';
                 return (
                   <div key={sale.id} className="flex items-center justify-between p-3 border-b border-stone-50 last:border-0">
                     <div className="min-w-0 flex-1 mr-2">
                       <div className="text-xs font-bold text-stone-800 truncate">{itemSummary}</div>
-                      <div className="text-[10px] text-stone-400">
-                        ${sale.total.toFixed(2)} · {paymentLabel}
+                      <div className="text-[10px] text-stone-500">
+                        {formatCurrency(sale.total)} · {paymentLabel}
                         {sale.created_at && ` · ${format(new Date(sale.created_at), 'HH:mm')}`}
                       </div>
                     </div>
                     <button
                       onClick={() => setCancelSaleId(sale.id)}
-                      className="text-rose-400 p-1.5 bg-rose-50 rounded-lg active:scale-90 transition-transform shrink-0"
+                      className="text-rose-400 p-3 bg-rose-50 rounded-lg active:scale-90 transition-transform shrink-0"
                       title="Anular venta"
                       aria-label="Anular venta"
                     >
@@ -246,7 +261,7 @@ export function ReportsTab({
             )}
             {reportData?.sales.filter(s => s.cancelled).length > 0 && (
               <>
-                <div className="px-3 py-2 text-[10px] uppercase font-bold text-stone-400 bg-stone-50">
+                <div className="px-3 py-2 text-[10px] uppercase font-bold text-stone-500 bg-stone-50">
                   Ventas Anuladas
                 </div>
                 {reportData?.sales
@@ -263,8 +278,8 @@ export function ReportsTab({
                           <div className="text-xs font-bold text-stone-500 line-through truncate">
                             {itemSummary}
                           </div>
-                          <div className="text-[10px] text-stone-400">
-                            ${sale.total.toFixed(2)} · Anulada
+                          <div className="text-[10px] text-stone-500">
+                            {formatCurrency(sale.total)} · Anulada
                             {sale.created_at && ` · ${format(new Date(sale.created_at), 'HH:mm')}`}
                           </div>
                         </div>
@@ -388,51 +403,66 @@ export function ReportsTab({
       />
 
       <div className="pt-8 border-t border-stone-200">
-        <h3 className="text-sm font-bold text-stone-400 uppercase tracking-widest mb-4">Historial de Jornadas</h3>
+        <h3 className="text-sm font-bold text-stone-500 uppercase tracking-widest mb-4">Historial de Jornadas</h3>
         <div className="space-y-3">
-          {history.map(session => (
-            <div key={session.id} className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-stone-800 truncate">{session.name || `Jornada #${session.id}`}</div>
-                <div className="text-[10px] text-stone-400">
-                  Cerrada: {session.end_time ? format(new Date(session.end_time), 'dd/MM/yyyy HH:mm') : 'N/A'}
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton.Box className="h-4 w-1/3" />
+                  <Skeleton.Box className="h-3 w-1/4" />
+                </div>
+                <div className="flex gap-1">
+                  <Skeleton.Box className="h-9 w-9 rounded-xl" />
+                  <Skeleton.Box className="h-9 w-9 rounded-xl" />
+                  <Skeleton.Box className="h-9 w-9 rounded-xl" />
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <button
-                  onClick={() => handleEditSession(session)}
-                  className="text-stone-500 p-2 bg-stone-100 rounded-xl active:scale-90 transition-transform"
-                  title="Editar nombre"
-                  aria-label={`Editar nombre de ${session.name || 'jornada'}`}
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => setDeleteSessionId(session.id)}
-                  className="text-rose-500 p-2 bg-rose-50 rounded-xl active:scale-90 transition-transform"
-                  title="Eliminar jornada"
-                  aria-label={`Eliminar ${session.name || 'jornada'}`}
-                >
-                  <Trash2 size={18} />
-                </button>
-                <button
-                  onClick={() =>
-                    handleExportExcel(
-                      session.id,
-                      format(new Date(session.end_time || ''), 'yyyy-MM-dd')
-                    )
-                  }
-                  className="text-emerald-600 p-2 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
-                  title="Exportar Excel"
-                  aria-label={`Exportar Excel de ${session.name || 'jornada'}`}
-                >
-                  <FileSpreadsheet size={18} />
-                </button>
+            ))
+          ) : history.length === 0 ? (
+            <div className="text-center py-8 text-stone-500 text-sm italic">Aún no hay jornadas cerradas</div>
+          ) : (
+            history.map(session => (
+              <div key={session.id} className="bg-white p-4 rounded-2xl border border-stone-200 flex items-center justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-stone-800 truncate">{session.name || `Jornada #${session.id}`}</div>
+                  <div className="text-[10px] text-stone-500">
+                    Cerrada: {session.end_time ? format(new Date(session.end_time), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => handleEditSession(session)}
+                    className="text-stone-500 p-3 bg-stone-100 rounded-xl active:scale-90 transition-transform"
+                    title="Editar nombre"
+                    aria-label={`Editar nombre de ${session.name || 'jornada'}`}
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    onClick={() => setDeleteSessionId(session.id)}
+                    className="text-rose-500 p-3 bg-rose-50 rounded-xl active:scale-90 transition-transform"
+                    title="Eliminar jornada"
+                    aria-label={`Eliminar ${session.name || 'jornada'}`}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleExportExcel(
+                        session.id,
+                        format(new Date(session.end_time || ''), 'yyyy-MM-dd')
+                      )
+                    }
+                    className="text-emerald-600 p-3 bg-emerald-50 rounded-xl active:scale-90 transition-transform"
+                    title="Exportar Excel"
+                    aria-label={`Exportar Excel de ${session.name || 'jornada'}`}
+                  >
+                    <FileSpreadsheet size={18} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-          {history.length === 0 && (
-            <div className="text-center py-8 text-stone-400 text-sm italic">Aún no hay jornadas cerradas</div>
+            ))
           )}
         </div>
       </div>

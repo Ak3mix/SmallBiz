@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ShoppingCart, Package, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from './services/api';
 import { dbService } from './services/database';
 import { MigrationService } from './services/migration';
 import { cn } from './utils/cn';
+import { formatCurrency } from './utils/formatCurrency';
 import { usePersistedCart } from './hooks/usePersistedCart';
 import { useToast } from './contexts/ToastContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -14,6 +15,7 @@ import { ReportsTab } from './components/ReportsTab';
 import { VenderGrid } from './components/VenderGrid';
 import { CartModal } from './components/CartModal';
 import { PaymentModal } from './components/PaymentModal';
+import { App as CapacitorApp } from '@capacitor/app';
 import type { Product, Session, Card, SaleInput } from './types';
 
 const tabLabels: Record<string, string> = {
@@ -27,6 +29,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'vender' | 'inventario' | 'reportes'>('vender');
   const [products, setProducts] = useState<Product[]>([]);
   const { cart, addToCart, removeFromCart, updateCartQuantity, clearCart, cartTotal, cartQuantity } = usePersistedCart();
+  const [isLoading, setIsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -76,10 +79,32 @@ export default function App() {
         await fetchSession();
       } catch (e) {
         console.error("Error initializing app:", e);
+      } finally {
+        setIsLoading(false);
       }
     };
     init();
   }, []);
+
+  useEffect(() => {
+    const promise = CapacitorApp.addListener('backButton', () => {
+      if (showPaymentModal) {
+        setShowPaymentModal(false);
+      } else if (showCartModal) {
+        setShowCartModal(false);
+      } else if (activeTab !== 'vender') {
+        setActiveTab('vender');
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { promise.then(h => h.remove()); };
+  }, [showPaymentModal, showCartModal, activeTab]);
+
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    addToast(`${product.name} agregado`, 'success');
+  };
 
   const initializeSplitPayments = (method: 'cash' | 'transfer' | 'split') => {
     setPaymentMethod(method);
@@ -199,12 +224,13 @@ export default function App() {
               <ErrorBoundary label="Vender">
                 <VenderGrid
                   products={products}
+                  loading={isLoading}
                   searchQuery={searchQuery}
                   selectedCategory={selectedCategory}
                   categories={categories}
                   onSearchChange={setSearchQuery}
                   onCategoryChange={setSelectedCategory}
-                  onAddToCart={addToCart}
+                  onAddToCart={handleAddToCart}
                 />
               </ErrorBoundary>
             </motion.div>
@@ -218,7 +244,7 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
             >
               <ErrorBoundary label="Inventario">
-                <InventoryTab products={products} onUpdate={fetchProducts} />
+                <InventoryTab products={products} loading={isLoading} onUpdate={fetchProducts} />
               </ErrorBoundary>
             </motion.div>
           )}
@@ -263,7 +289,7 @@ export default function App() {
                   </div>
                   <span className="font-bold">Ver Carrito</span>
                 </div>
-                <div className="text-xl font-black">${cartTotal.toFixed(2)}</div>
+                <div className="text-xl font-black">{formatCurrency(cartTotal)}</div>
               </button>
             </div>
           </motion.div>

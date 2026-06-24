@@ -65,8 +65,8 @@ export function Modal({ isOpen, onClose, title, variant = 'center', children }: 
             className={cn(
               'bg-white w-full shadow-2xl',
               variant === 'bottom-sheet'
-                ? 'max-w-md rounded-t-[40px] p-6 pb-8 max-h-[90vh] max-h-[90dvh] flex flex-col'
-                : 'max-w-sm rounded-[32px] p-6'
+                ? 'max-w-md rounded-t-3xl p-6 pb-8 max-h-[90vh] max-h-[90dvh] flex flex-col'
+                : 'max-w-sm rounded-3xl p-6'
             )}
             onClick={e => e.stopPropagation()}
           >

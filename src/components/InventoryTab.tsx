@@ -12,9 +12,11 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { cn } from '../utils/cn';
 import { useDebounce } from '../hooks/useDebounce';
+import { formatCurrency } from '../utils/formatCurrency';
 import { dataTransferService } from '../services/dataTransferService';
 import { api } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Skeleton } from './Skeleton';
 import { ProductFormModal } from './ProductFormModal';
 import type { ProductFormData } from './ProductFormModal';
 import { CardFormModal } from './CardFormModal';
@@ -22,7 +24,7 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { MoveInventoryModal } from './MoveInventoryModal';
 import type { Product, Card } from '../types';
 
-export function InventoryTab({ products, onUpdate }: { products: Product[]; onUpdate: () => void }) {
+export function InventoryTab({ products, loading = false, onUpdate }: { products: Product[]; loading?: boolean; onUpdate: () => void }) {
   const { addToast } = useToast();
   const [activeInventoryTab, setActiveInventoryTab] = useState<'products' | 'cards'>('products');
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -42,14 +44,17 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const [cards, setCards] = useState<Card[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
   const [showCardForm, setShowCardForm] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [deletingCardId, setDeletingCardId] = useState<number | null>(null);
   const [isDeletingCard, setIsDeletingCard] = useState(false);
 
   const fetchCards = async () => {
+    setCardsLoading(true);
     const data = await api.getCards();
     setCards(data);
+    setCardsLoading(false);
   };
 
   useEffect(() => {
@@ -175,7 +180,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                     addToast('Error al exportar: ' + (e.message || e.code || JSON.stringify(e)), 'error');
                   }
                 }}
-                className="bg-stone-100 text-stone-900 p-2 rounded-xl active:scale-95 transition-transform"
+                className="bg-stone-100 text-stone-900 p-3 rounded-xl active:scale-95 transition-transform"
                 title="Exportar Datos"
                 aria-label="Exportar datos"
               >
@@ -201,7 +206,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                     addToast('Error al importar: ' + (e.message || JSON.stringify(e)), 'error');
                   }
                 }}
-                className="bg-stone-100 text-stone-900 p-2 rounded-xl active:scale-95 transition-transform"
+                className="bg-stone-100 text-stone-900 p-3 rounded-xl active:scale-95 transition-transform"
                 title="Importar Datos"
                 aria-label="Importar datos"
               >
@@ -212,7 +217,7 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                   setEditingProduct(null);
                   setShowAddProduct(true);
                 }}
-                className="bg-stone-900 text-white p-2 rounded-xl shadow-lg active:scale-95 transition-transform shrink-0"
+                className="bg-stone-900 text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform shrink-0"
                 aria-label="Añadir producto"
               >
                 <Plus size={20} />
@@ -246,92 +251,109 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
           )}
 
           <div className="space-y-3">
-            {filteredProducts.length === 0 && products.length > 0 && (
-              <div className="text-center py-12 text-stone-400">
-                <p className="font-medium">No se encontraron productos</p>
-              </div>
-            )}
-            {filteredProducts.map(product => (
-              <div
-                key={product.id}
-                className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-col gap-4"
-              >
-                <div className="flex items-start gap-4">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-20 h-20 object-contain rounded-xl shrink-0 bg-stone-100"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 bg-stone-100 rounded-xl shrink-0 flex items-center justify-center">
-                      <ImageIcon size={32} className="text-stone-300" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-black text-stone-900 text-lg leading-tight truncate">{product.name}</div>
-                    <div className="text-xs text-stone-400 mt-1">
-                      {product.category && (
-                        <span className="inline-block bg-stone-100 px-2 py-0.5 rounded-full text-[10px] uppercase font-bold mr-2">
-                          {product.category}
-                        </span>
-                      )}
-                      Stock:{' '}
-                      <span
-                        className={cn('font-bold', (product.stock ?? 0) <= 5 ? 'text-rose-600' : 'text-stone-600')}
-                      >
-                        {product.stock}
-                      </span>
-                      {(product.stock ?? 0) <= 5 && (
-                        <span className="ml-1 text-[8px] bg-rose-100 text-rose-700 font-black px-1 py-0.5 rounded-full uppercase">
-                          Stock Bajo
-                        </span>
-                      )}{' '}
-                      • Precio:{' '}
-                      <span className="font-bold text-emerald-600">${product.price.toFixed(2)}</span> • Costo:{' '}
-                      <span className="font-bold text-stone-500">${(product.cost || 0).toFixed(2)}</span>
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex items-start gap-4">
+                  <Skeleton.Box className="w-20 h-20 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton.Box className="h-5 w-3/4" />
+                    <Skeleton.Box className="h-4 w-1/2" />
+                    <div className="flex gap-2 justify-end mt-3">
+                      <Skeleton.Box className="h-10 w-16 rounded-xl" />
+                      <Skeleton.Box className="h-10 w-16 rounded-xl" />
+                      <Skeleton.Box className="h-10 w-16 rounded-xl" />
+                      <Skeleton.Box className="h-10 w-16 rounded-xl" />
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => setMovingProduct(product)}
-                    className="bg-blue-50 text-blue-600 p-2.5 rounded-xl hover:bg-blue-100 transition-colors flex-1 flex justify-center shrink-0"
-                    title="Reabastecer"
-                    aria-label={`Reabastecer ${product.name}`}
-                  >
-                    <ArrowUpCircle size={20} />
-                  </button>
-                  <button
-                    onClick={() => setMovingProduct(product)}
-                    className="bg-rose-50 text-rose-600 p-2.5 rounded-xl hover:bg-rose-100 transition-colors flex-1 flex justify-center shrink-0"
-                    title="Merma"
-                    aria-label={`Registrar merma de ${product.name}`}
-                  >
-                    <ArrowDownCircle size={20} />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingProduct(product);
-                      setShowAddProduct(true);
-                    }}
-                    className="bg-stone-50 text-stone-600 p-2.5 rounded-xl hover:bg-stone-100 transition-colors flex-1 flex justify-center shrink-0"
-                    title="Editar"
-                    aria-label={`Editar ${product.name}`}
-                  >
-                    <Edit size={20} />
-                  </button>
-                  <button
-                    onClick={() => setDeletingProduct(product)}
-                    className="bg-stone-50 text-rose-400 p-2.5 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-colors flex-1 flex justify-center shrink-0"
-                    title="Eliminar"
-                    aria-label={`Eliminar ${product.name}`}
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                </div>
+              ))
+            ) : filteredProducts.length === 0 && products.length > 0 ? (
+              <div className="text-center py-12 text-stone-500">
+                <p className="font-medium">No se encontraron productos</p>
               </div>
-            ))}
+            ) : (
+              filteredProducts.map(product => (
+                <div
+                  key={product.id}
+                  className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm flex flex-col gap-4"
+                >
+                  <div className="flex items-start gap-4">
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-20 h-20 object-contain rounded-xl shrink-0 bg-stone-100" loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 bg-stone-100 rounded-xl shrink-0 flex items-center justify-center">
+                        <ImageIcon size={32} className="text-stone-300" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-black text-stone-900 text-lg leading-tight truncate">{product.name}</div>
+                      <div className="text-xs text-stone-500 mt-1">
+                        {product.category && (
+                          <span className="inline-block bg-stone-100 px-2 py-0.5 rounded-full text-[10px] uppercase font-bold mr-2">
+                            {product.category}
+                          </span>
+                        )}
+                        Stock:{' '}
+                        <span
+                          className={cn('font-bold', (product.stock ?? 0) <= 5 ? 'text-rose-600' : 'text-stone-600')}
+                        >
+                          {product.stock}
+                        </span>
+                        {(product.stock ?? 0) <= 5 && (
+                        <span className="ml-1 text-[10px] bg-rose-100 text-rose-700 font-black px-1.5 py-0.5 rounded-full uppercase">
+                          Stock Bajo
+                        </span>
+                        )}{' '}
+                        • Precio:{' '}
+                        <span className="font-bold text-emerald-600">{formatCurrency(product.price)}</span> • Costo:{' '}
+                        <span className="font-bold text-stone-500">{formatCurrency(product.cost || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setMovingProduct(product)}
+                      className="bg-blue-50 text-blue-600 p-3 rounded-xl hover:bg-blue-100 transition-colors flex-1 flex justify-center shrink-0"
+                      title="Reabastecer"
+                      aria-label={`Reabastecer ${product.name}`}
+                    >
+                      <ArrowUpCircle size={20} />
+                    </button>
+                    <button
+                      onClick={() => setMovingProduct(product)}
+                      className="bg-rose-50 text-rose-600 p-3 rounded-xl hover:bg-rose-100 transition-colors flex-1 flex justify-center shrink-0"
+                      title="Merma"
+                      aria-label={`Registrar merma de ${product.name}`}
+                    >
+                      <ArrowDownCircle size={20} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingProduct(product);
+                        setShowAddProduct(true);
+                      }}
+                      className="bg-stone-50 text-stone-600 p-3 rounded-xl hover:bg-stone-100 transition-colors flex-1 flex justify-center shrink-0"
+                      title="Editar"
+                      aria-label={`Editar ${product.name}`}
+                    >
+                      <Edit size={20} />
+                    </button>
+                    <button
+                      onClick={() => setDeletingProduct(product)}
+                      className="bg-stone-50 text-rose-400 p-3 rounded-xl hover:bg-rose-50 hover:text-rose-600 transition-colors flex-1 flex justify-center shrink-0"
+                      title="Eliminar"
+                      aria-label={`Eliminar ${product.name}`}
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </>
       ) : (
@@ -343,44 +365,59 @@ export function InventoryTab({ products, onUpdate }: { products: Product[]; onUp
                 setEditingCard(null);
                 setShowCardForm(true);
               }}
-              className="bg-stone-900 text-white p-2 rounded-xl"
+              className="bg-stone-900 text-white p-3 rounded-xl"
               aria-label="Añadir tarjeta"
             >
               <Plus size={20} />
             </button>
           </div>
           <div className="space-y-2">
-            {cards.map(card => (
-              <div key={card.id} className="p-3 bg-stone-50 rounded-xl flex justify-between items-center">
-                <div>
-                  <div className="font-bold">{card.name}</div>
-                  <div className="text-xs text-stone-500">
-                    {card.bank} - {card.account_number}
+            {cardsLoading ? (
+              Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="p-3 bg-stone-50 rounded-xl flex justify-between items-center">
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton.Box className="h-4 w-1/2" />
+                    <Skeleton.Box className="h-3 w-2/3" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton.Box className="h-9 w-9 rounded-lg" />
+                    <Skeleton.Box className="h-9 w-9 rounded-lg" />
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingCard(card);
-                      setShowCardForm(true);
-                    }}
-                    className="text-stone-600"
-                    aria-label={`Editar ${card.name}`}
-                  >
-                    <Edit size={18} />
-                  </button>
-                  <button
-                    onClick={() => setDeletingCardId(card.id)}
-                    className="text-rose-500"
-                    aria-label={`Eliminar ${card.name}`}
-                  >
-                    <Trash2 size={18} />
-                  </button>
+              ))
+            ) : (
+              cards.map(card => (
+                <div key={card.id} className="p-3 bg-stone-50 rounded-xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold">{card.name}</div>
+                    <div className="text-xs text-stone-500">
+                      {card.bank} - {card.account_number}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingCard(card);
+                        setShowCardForm(true);
+                      }}
+                      className="text-stone-600 p-2.5"
+                      aria-label={`Editar ${card.name}`}
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      onClick={() => setDeletingCardId(card.id)}
+                      className="text-rose-500 p-2.5"
+                      aria-label={`Eliminar ${card.name}`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {cards.length === 0 && (
-              <div className="text-center py-8 text-stone-400 text-sm italic">
+              ))
+            )}
+            {!cardsLoading && cards.length === 0 && (
+              <div className="text-center py-8 text-stone-500 text-sm italic">
                 No hay tarjetas registradas
               </div>
             )}

@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { DollarSign, CreditCard } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { formatCurrency } from '../utils/formatCurrency';
 import { Modal } from './Modal';
 
 interface PaymentModalProps {
@@ -90,7 +91,7 @@ export function PaymentModal({
         <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl p-4 mb-6 space-y-4">
           <div className="text-center mb-2">
             <p className="text-xs font-bold text-purple-600 uppercase tracking-widest">Total a pagar</p>
-            <p className="text-2xl font-black text-purple-700">${cartTotal.toFixed(2)}</p>
+            <p className="text-2xl font-black text-purple-700">{formatCurrency(cartTotal)}</p>
           </div>
 
           <div>
@@ -125,12 +126,12 @@ export function PaymentModal({
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-purple-600 uppercase">Suma:</span>
               <span className={cn("text-lg font-black", Math.abs((splitPayments.cash + splitPayments.transfer) - cartTotal) < 0.01 ? "text-emerald-600" : "text-rose-500")}>
-                ${(splitPayments.cash + splitPayments.transfer).toFixed(2)}
+                {formatCurrency(splitPayments.cash + splitPayments.transfer)}
               </span>
             </div>
             {Math.abs((splitPayments.cash + splitPayments.transfer) - cartTotal) >= 0.01 && (
               <p className="text-xs text-rose-500 font-bold mt-1">
-                La suma debe ser igual al total (${cartTotal.toFixed(2)})
+                La suma debe ser igual al total ({formatCurrency(cartTotal)})
               </p>
             )}
           </div>

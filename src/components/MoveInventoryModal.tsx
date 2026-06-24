@@ -60,7 +60,7 @@ export function MoveInventoryModal({ isOpen, product, onConfirm, onClose }: Prop
       </div>
       <div className="space-y-4 mb-8">
         <div>
-          <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Cantidad</label>
+            <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Cantidad</label>
           <input
             type="number"
             min="1"
@@ -71,7 +71,7 @@ export function MoveInventoryModal({ isOpen, product, onConfirm, onClose }: Prop
         </div>
         {moveType === 'waste' && (
           <div>
-            <label className="text-[10px] uppercase font-bold text-stone-400 mb-1 block">Motivo (Opcional)</label>
+            <label className="text-[10px] uppercase font-bold text-stone-500 mb-1 block">Motivo (Opcional)</label>
             <input
               placeholder="Ej: Caducidad, Daño..."
               value={moveReason}
